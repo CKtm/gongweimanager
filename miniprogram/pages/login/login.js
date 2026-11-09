@@ -5,6 +5,11 @@ Page({
     username: '', password: '', loading: false, forceChange: false, resetToken: '', pwdChrtype: '0',
     newPassword: '', confirmPassword: '', resetLoading: false
   },
+  onShow() {
+    if (!this.data.loading && !this.data.forceChange && wx.getStorageSync('token') && wx.getStorageSync('userInfo')) {
+      wx.reLaunch({ url: '/pages/index/index' })
+    }
+  },
   onInput(e) { this.setData({ [e.currentTarget.dataset.field]: e.detail.value }) },
   submit() {
     if (!this.data.username || !this.data.password) return wx.showToast({ title: '请输入账号和密码', icon: 'none' })

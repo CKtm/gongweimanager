@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.gongwei.GwApplicationMapper">
+    <resultMap id="GwApplicationResult" type="GwMobileApplication">
+        <id property="applicationId" column="application_id"/>
+        <result property="studentId" column="student_id"/>
+        <result property="studentName" column="student_name"/>
+        <result property="reason" column="reason"/>
+        <result property="plannedStart" column="planned_start"/>
+        <result property="plannedEnd" column="planned_end"/>
+        <result property="status" column="status"/>
+        <result property="mentorComment" column="mentor_comment"/>
+        <result property="adminComment" column="admin_comment"/>
+        <result property="workstationId" column="workstation_id"/>
+        <result property="workstationNo" column="workstation_no"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+    <sql id="selectApplicationVo">
+        select a.application_id, a.student_id, u.nick_name student_name, a.reason, a.planned_start,
+               a.planned_end, a.status, a.mentor_comment, a.admin_comment, a.workstation_id,
+               w.workstation_no, a.create_time
+        from gw_mobile_application a
+        left join sys_user u on u.user_id = a.student_id
+        left join gw_workstation w on w.workstation_id = a.workstation_id
+    </sql>
+    <select id="selectApplicationList" resultMap="GwApplicationResult">
+        <include refid="selectApplicationVo"/>
+        <where>
+            <if test="application.status != null and application.status != ''">and a.status = #{application.status}</if>
+            <if test="application.studentId != null">and a.student_id = #{application.studentId}</if>
+            <if test="scope == 'MENTOR'">and exists (select 1 from gw_user_profile p where p.user_id = a.student_id and p.mentor_id = #{userId})</if>
+        </where>
+        order by a.application_id desc
+    </select>
+    <select id="selectApplicationById" resultMap="GwApplicationResult">
+        <include refid="selectApplicationVo"/> where a.application_id = #{applicationId}
+        <if test="scope == 'SELF'">and a.student_id=#{userId}</if>
+        <if test="scope == 'MENTOR'">and exists(select 1 from gw_user_profile p where p.user_id=a.student_id and p.mentor_id=#{userId})</if>
+    </select>
+    <select id="selectApplicationForUpdate" parameterType="long" resultMap="GwApplicationResult">
+        <include refid="selectApplicationVo"/> where a.application_id = #{applicationId} for update
+    </select>
+    <select id="countPendingByStudent" parameterType="long" resultType="int">
+        select count(1) from gw_mobile_application
+        where student_id = #{studentId} and status in ('PENDING_MENTOR','PENDING_ADMIN','WAIT_ALLOC')
+    </select>
+    <insert id="insertApplication" parameterType="GwMobileApplication" useGeneratedKeys="true" keyProperty="applicationId">
+        insert into gw_mobile_application(student_id, reason, planned_start, planned_end, status, create_by, create_time)
+        values(#{studentId}, #{reason}, #{plannedStart}, #{plannedEnd}, 'PENDING_MENTOR', #{studentId}, now())
+    </insert>
+    <update id="updateMentorReview">
+        update gw_mobile_application set status = #{status}, mentor_comment = #{comment}, mentor_review_time = now()
+        where application_id = #{applicationId} and status = 'PENDING_MENTOR'
+          and exists(select 1 from gw_user_profile p where p.user_id=gw_mobile_application.student_id and p.mentor_id=#{mentorId})
+    </update>
+    <update id="updateAdminReview">
+        update gw_mobile_application set status = #{status}, admin_comment = #{comment}, admin_review_time = now()
+        where application_id = #{applicationId} and status = 'PENDING_ADMIN'
+    </update>
+    <update id="updateApplicationStatus">
+        update gw_mobile_application set status = #{status}, workstation_id = #{workstationId}, update_time = now()
+        where application_id = #{applicationId} and status = 'WAIT_ALLOC'
+    </update>
+    <insert id="insertAssignment">
+        insert into gw_assignment(student_id, workstation_id, application_id, started_at, operator_id, create_time)
+        values(#{studentId}, #{workstationId}, #{applicationId}, now(), #{operatorId}, now())
+    </insert>
+    <select id="countActiveAssignmentByStudent" parameterType="long" resultType="int">
+        select count(1) from gw_assignment where student_id = #{studentId} and ended_at is null
+    </select>
+</mapper>

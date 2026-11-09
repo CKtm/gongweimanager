@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.gongwei.GwWorkstationMapper">
+    <resultMap id="GwWorkstationResult" type="GwWorkstation">
+        <id property="workstationId" column="workstation_id"/>
+        <result property="roomId" column="room_id"/>
+        <result property="roomName" column="room_name"/>
+        <result property="roomType" column="room_type"/>
+        <result property="roomStatus" column="room_status"/>
+        <result property="mentorId" column="mentor_id"/>
+        <result property="mentorName" column="mentor_name"/>
+        <result property="workstationNo" column="workstation_no"/>
+        <result property="workstationType" column="workstation_type"/>
+        <result property="layoutRow" column="layout_row"/>
+        <result property="layoutCol" column="layout_col"/>
+        <result property="status" column="status"/>
+        <result property="studentId" column="student_id"/>
+        <result property="studentName" column="student_name"/>
+    </resultMap>
+    <sql id="selectWorkstationVo">
+        select w.workstation_id, w.room_id, r.room_name, r.room_type, r.status room_status, r.mentor_id, mu.nick_name mentor_name, w.workstation_no, w.workstation_type,
+               w.layout_row, w.layout_col, w.status, a.student_id, su.nick_name student_name
+        from gw_workstation w
+        left join gw_room r on r.room_id = w.room_id
+        left join sys_user mu on mu.user_id = r.mentor_id
+        left join gw_assignment a on a.workstation_id = w.workstation_id and a.ended_at is null
+        left join sys_user su on su.user_id = a.student_id
+    </sql>
+    <select id="selectWorkstationList" parameterType="GwWorkstation" resultMap="GwWorkstationResult">
+        <include refid="selectWorkstationVo"/>
+        <where>
+            <if test="roomId != null">and w.room_id = #{roomId}</if>
+            <if test="workstationType != null and workstationType != ''">and w.workstation_type = #{workstationType}</if>
+            <if test="roomType != null and roomType != ''">and r.room_type = #{roomType}</if>
+            <if test="mentorId != null">and r.mentor_id = #{mentorId}</if>
+            <if test="status != null and status != ''">and w.status = #{status}</if>
+            <if test="studentId != null">and a.student_id = #{studentId}</if>
+            <if test="workstationNo != null and workstationNo != ''">and w.workstation_no like concat('%', #{workstationNo}, '%')</if>
+        </where>
+        order by w.room_id, w.layout_row, w.layout_col, w.workstation_id
+    </select>
+    <select id="selectWorkstationById" parameterType="long" resultMap="GwWorkstationResult">
+        <include refid="selectWorkstationVo"/> where w.workstation_id = #{workstationId}
+    </select>
+    <select id="selectWorkstationForUpdate" parameterType="long" resultMap="GwWorkstationResult">
+        <include refid="selectWorkstationVo"/> where w.workstation_id = #{workstationId} for update
+    </select>
+    <insert id="insertWorkstation" parameterType="GwWorkstation" useGeneratedKeys="true" keyProperty="workstationId">
+        insert into gw_workstation(room_id, workstation_no, workstation_type, layout_row, layout_col, status, create_by, create_time)
+        values(#{roomId}, #{workstationNo}, #{workstationType}, #{layoutRow}, #{layoutCol}, ifnull(#{status}, 'AVAILABLE'), #{createBy}, now())
+    </insert>
+    <update id="updateWorkstation" parameterType="GwWorkstation">
+        update gw_workstation
+        set room_id = #{roomId}, workstation_no = #{workstationNo}, workstation_type = #{workstationType},
+            layout_row = #{layoutRow}, layout_col = #{layoutCol}, status = #{status},
+            update_by = #{updateBy}, update_time = now()
+        where workstation_id = #{workstationId}
+    </update>
+    <delete id="deleteWorkstationById" parameterType="long">
+        delete from gw_workstation where workstation_id = #{workstationId} and status = 'AVAILABLE'
+    </delete>
+    <select id="countWorkstationReferences" resultType="int">
+        select (select count(1) from gw_assignment where workstation_id=#{workstationId})
+             + (select count(1) from gw_return_application where workstation_id=#{workstationId} and status in ('PENDING_MENTOR','PENDING_ADMIN','WAIT_CLEAR','WAIT_VERIFY'))
+             + (select count(1) from gw_inspection_record where workstation_id=#{workstationId})
+    </select>
+    <select id="countByRoomAndNo" resultType="int">select count(1) from gw_workstation where room_id=#{roomId} and workstation_no=#{workstationNo}</select>
+    <update id="updateStatus">
+        update gw_workstation set status = #{status}, update_time = now() where workstation_id = #{workstationId}
+    </update>
+    <select id="countAvailableFixedByMentor" parameterType="long" resultType="int">
+        select count(1) from gw_workstation w join gw_room r on r.room_id=w.room_id
+        where r.mentor_id=#{mentorId} and r.room_type='STUDIO' and r.status='NORMAL'
+          and w.workstation_type='FIXED' and w.status='AVAILABLE'
+    </select>
+</mapper>

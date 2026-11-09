@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.gongwei.GwRoomMapper">
+    <resultMap id="GwRoomResult" type="GwRoom">
+        <id property="roomId" column="room_id"/>
+        <result property="roomName" column="room_name"/>
+        <result property="location" column="location"/>
+        <result property="roomType" column="room_type"/>
+        <result property="mentorId" column="mentor_id"/>
+        <result property="mentorName" column="mentor_name"/>
+        <result property="status" column="status"/>
+        <result property="remark" column="remark"/>
+        <result property="workstationCount" column="workstation_count"/>
+        <result property="availableCount" column="available_count"/>
+        <result property="inUseCount" column="in_use_count"/>
+        <result property="disabledCount" column="disabled_count"/>
+    </resultMap>
+    <sql id="selectRoomVo">
+        select r.room_id,r.room_name,r.location,r.room_type,r.mentor_id,u.nick_name mentor_name,r.status,r.remark,
+               count(w.workstation_id) workstation_count,
+               coalesce(sum(w.status='AVAILABLE'),0) available_count,
+               coalesce(sum(w.status in ('IN_USE','PENDING_RETURN')),0) in_use_count,
+               coalesce(sum(w.status='DISABLED'),0) disabled_count
+        from gw_room r
+        left join sys_user u on u.user_id=r.mentor_id
+        left join gw_workstation w on w.room_id=r.room_id
+    </sql>
+    <select id="selectRoomList" parameterType="GwRoom" resultMap="GwRoomResult">
+        <include refid="selectRoomVo"/>
+        <where>
+            <if test="roomName != null and roomName != ''">and r.room_name like concat('%', #{roomName}, '%')</if>
+            <if test="roomType != null and roomType != ''">and r.room_type = #{roomType}</if>
+            <if test="mentorId != null">and r.mentor_id = #{mentorId}</if>
+            <if test="status != null and status != ''">and r.status = #{status}</if>
+            <if test="availableForApply != null and availableForApply">and r.room_type='STUDIO' and r.status='NORMAL' and r.mentor_id is null</if>
+        </where>
+        group by r.room_id,r.room_name,r.location,r.room_type,r.mentor_id,u.nick_name,r.status,r.remark
+        order by r.room_id desc
+    </select>
+    <select id="selectRoomById" parameterType="long" resultMap="GwRoomResult">
+        <include refid="selectRoomVo"/> where r.room_id=#{roomId}
+        group by r.room_id,r.room_name,r.location,r.room_type,r.mentor_id,u.nick_name,r.status,r.remark
+    </select>
+    <select id="selectRoomForUpdate" parameterType="long" resultMap="GwRoomResult">
+        select r.room_id,r.room_name,r.location,r.room_type,r.mentor_id,u.nick_name mentor_name,r.status,r.remark,
+               0 workstation_count,0 available_count,0 in_use_count,0 disabled_count
+        from gw_room r left join sys_user u on u.user_id=r.mentor_id where r.room_id=#{roomId} for update
+    </select>
+    <insert id="insertRoom" parameterType="GwRoom" useGeneratedKeys="true" keyProperty="roomId">
+        insert into gw_room(room_name, location, room_type, status, remark, create_by, create_time)
+        values(#{roomName}, #{location}, #{roomType}, ifnull(#{status}, 'NORMAL'), #{remark}, #{createBy}, now())
+    </insert>
+    <update id="updateRoom" parameterType="GwRoom">
+        update gw_room
+        set room_name = #{roomName}, location = #{location}, room_type=#{roomType}, status = #{status}, remark = #{remark},
+            update_by = #{updateBy}, update_time = now()
+        where room_id = #{roomId}
+    </update>
+    <delete id="deleteRoomById" parameterType="long">
+        delete from gw_room where room_id = #{roomId}
+    </delete>
+    <select id="countRoomReferences" resultType="int">select (select count(1) from gw_workstation where room_id=#{roomId}) + (select count(1) from gw_inspection_task where room_id=#{roomId}) + (select count(1) from gw_studio_application where room_id=#{roomId})</select>
+    <select id="countWorkstations" resultType="int">select count(1) from gw_workstation where room_id=#{roomId}</select>
+    <select id="countActiveAssignments" resultType="int">select count(1) from gw_assignment a join gw_workstation w on w.workstation_id=a.workstation_id where w.room_id=#{roomId} and a.ended_at is null</select>
+    <select id="countPendingStudioApplications" resultType="int">select count(1) from gw_studio_application where room_id=#{roomId} and status='PENDING'</select>
+    <update id="bindMentor">update gw_room set mentor_id=#{mentorId},update_time=now() where room_id=#{roomId} and room_type='STUDIO' and status='NORMAL' and mentor_id is null</update>
+    <update id="releaseMentor">update gw_room set mentor_id=null,update_time=now() where room_id=#{roomId} and mentor_id=#{mentorId}</update>
+</mapper>

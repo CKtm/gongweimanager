@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.gongwei.GwReturnMapper">
+    <resultMap id="ReturnResult" type="GwReturnApplication">
+        <id property="returnId" column="return_id"/><result property="assignmentId" column="assignment_id"/>
+        <result property="studentId" column="student_id"/><result property="studentName" column="student_name"/>
+        <result property="workstationId" column="workstation_id"/><result property="roomName" column="room_name"/>
+        <result property="workstationNo" column="workstation_no"/><result property="workstationType" column="workstation_type"/>
+        <result property="sourceType" column="source_type"/><result property="status" column="status"/>
+        <result property="reason" column="reason"/><result property="mentorComment" column="mentor_comment"/>
+        <result property="adminComment" column="admin_comment"/><result property="photoUrls" column="photo_urls"/>
+        <result property="photoUploadTime" column="photo_upload_time"/><result property="studentCleared" column="student_cleared"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+    <sql id="selectReturnVo">
+        select r.return_id,r.assignment_id,r.student_id,su.nick_name student_name,r.workstation_id,room.room_name,
+               w.workstation_no,w.workstation_type,r.source_type,r.status,r.reason,r.mentor_comment,r.admin_comment,
+               r.photo_urls,r.photo_upload_time,r.student_cleared,r.create_time
+        from gw_return_application r join gw_workstation w on w.workstation_id=r.workstation_id
+        left join gw_room room on room.room_id=w.room_id left join sys_user su on su.user_id=r.student_id
+    </sql>
+    <select id="selectList" resultMap="ReturnResult"><include refid="selectReturnVo"/><where>
+        <if test="studentId != null">and r.student_id=#{studentId}</if>
+        <if test="mentorId != null">and exists(select 1 from gw_user_profile p where p.user_id=r.student_id and p.mentor_id=#{mentorId})</if>
+        <if test="status != null and status != ''">and r.status=#{status}</if>
+    </where> order by r.return_id desc</select>
+    <select id="selectByIdForUpdate" resultMap="ReturnResult"><include refid="selectReturnVo"/> where r.return_id=#{returnId} for update</select>
+    <select id="countPendingByAssignment" resultType="int">select count(1) from gw_return_application where assignment_id=#{assignmentId} and status in ('PENDING_MENTOR','PENDING_ADMIN','WAIT_CLEAR','WAIT_VERIFY')</select>
+    <insert id="insertApplication" parameterType="GwReturnApplication" useGeneratedKeys="true" keyProperty="returnId">
+        insert into gw_return_application(assignment_id,student_id,workstation_id,source_type,status,reason,photo_urls,photo_upload_time,student_cleared,create_time)
+        values(#{assignmentId},#{studentId},#{workstationId},#{sourceType},#{status},#{reason},#{photoUrls},
+               if(#{photoUrls} is null,null,now()),if(#{photoUrls} is null,0,1),now())
+    </insert>
+    <update id="updateStatus">
+        update gw_return_application set status=#{toStatus},
+            mentor_comment=if(#{mentorId} is not null,#{comment},mentor_comment),
+            admin_comment=if(#{mentorId} is null,#{comment},admin_comment),
+            student_cleared=if(#{toStatus}='WAIT_CLEAR',0,student_cleared),update_time=now()
+        where return_id=#{returnId} and status=#{fromStatus}
+        <if test="mentorId != null">and exists(select 1 from gw_user_profile p where p.user_id=gw_return_application.student_id and p.mentor_id=#{mentorId})</if>
+    </update>
+    <update id="completeAfterAdminReview">
+        update gw_return_application set status='COMPLETED',admin_comment=#{comment},operator_id=#{operatorId},
+            verified_time=now(),update_time=now()
+        where return_id=#{returnId} and status='PENDING_ADMIN'
+    </update>
+    <update id="updatePhotos">
+        update gw_return_application set photo_urls=#{photoUrls},photo_upload_time=now(),student_cleared=1,
+            status=#{toStatus},update_time=now()
+        where return_id=#{returnId} and student_id=#{studentId} and status='WAIT_CLEAR'
+    </update>
+    <!-- 下面三个更新仅兼容升级前 source_type 为空的旧清空/核验流程。 -->
+    <update id="markCleared">update gw_return_application set student_cleared=1,status='WAIT_VERIFY',cleared_time=now(),update_time=now() where return_id=#{returnId} and status='WAIT_CLEAR' and source_type is null</update>
+    <update id="resetClearance">update gw_return_application set status='WAIT_CLEAR',student_cleared=0,admin_comment=#{comment},operator_id=#{operatorId},cleared_time=null,update_time=now() where return_id=#{returnId} and status='WAIT_VERIFY' and source_type is null</update>
+    <update id="finishReturn">update gw_return_application set status='COMPLETED',admin_comment=#{comment},operator_id=#{operatorId},verified_time=now(),update_time=now() where return_id=#{returnId} and status='WAIT_VERIFY' and source_type is null</update>
+    <insert id="insertAudit">
+        insert into gw_audit_log(business_type,business_id,action,operator_id,before_data,after_data,reason,create_time)
+        values('RETURN',#{returnId},#{action},#{operatorId},
+               if(#{beforeStatus} is null,null,json_object('status',#{beforeStatus})),
+               if(#{afterStatus} is null,null,json_object('status',#{afterStatus})),#{reason},now())
+    </insert>
+</mapper>

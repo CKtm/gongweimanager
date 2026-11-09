@@ -1,0 +1,54 @@
+<view class="page">
+  <view class="page-intro"><text class="page-kicker">SPACE INSPECTION</text><text class="page-title">卫生检查</text><text class="page-caption">选择任务，点击座位，完成现场评分</text></view>
+  <view class="form">
+    <view class="section-title">当前检查任务</view>
+    <view wx:if="{{!tasks.length}}" class="empty">暂无待执行检查任务</view>
+    <picker range="{{tasks}}" range-key="taskLabel" value="{{taskIndex}}" bindchange="onTask"><view class="picker">{{selectedTask ? selectedTask.taskName : '请选择检查任务'}}</view></picker>
+    <view wx:if="{{selectedTask}}" class="task-info"><text>{{selectedTask.scheduledDate}}</text><text>状态：{{selectedTask.displayStatus}}</text></view>
+    <view wx:if="{{selectedTask}}" class="progress">本次已完成 {{scoredCount}} 项评分 · 点击座位或选择工作室整体评分</view>
+    <block wx:if="{{selectedTask}}">
+      <view class="section-title room-heading">选择检查房间</view>
+      <scroll-view scroll-x class="room-tabs"><view wx:for="{{rooms}}" wx:key="roomId" class="room-tab {{selectedRoom.roomId === item.roomId ? 'active' : ''}}" data-id="{{item.roomId}}" bindtap="openRoom"><text>{{item.roomName}}</text><text class="room-meta">{{item.roomType === 'STUDIO' ? '工作室' : '流动工位房间'}} · {{item.seatCount}} 座 · 已评 {{item.scoreCount}}</text></view></scroll-view>
+      <view wx:if="{{!rooms.length}}" class="empty">暂无可查看的房间</view>
+      <view wx:if="{{selectedRoom}}" class="room-panel">
+        <view class="room-title"><text>{{selectedRoom.roomName}}</text><text class="muted">{{selectedRoom.mentorName ? '导师：' + selectedRoom.mentorName : ''}}</text></view>
+        <view class="legend"><text class="legend-used">● 可评分</text><text class="legend-done">● 已评分</text><text>● 空闲 / 停用</text></view>
+        <view class="board-hint">点击学生座位评分 · 可左右滑动查看座位</view>
+        <scroll-view scroll-x class="seat-scroll"><view class="seat-board" style="width:{{boardWidth}}rpx;height:{{boardHeight}}rpx"><view wx:for="{{seats}}" wx:key="workstationId" class="seat {{item.state}} {{selectedTarget.workstationId === item.workstationId ? 'selected-seat' : ''}}" style="left:{{item.left}}rpx;top:{{item.top}}rpx" data-id="{{item.workstationId}}" bindtap="chooseSeat"><text class="seat-no">{{item.workstationNo}}</text><text class="seat-person">{{item.studentName || '空座位'}}</text><text class="seat-state">{{item.stateText}}</text></view></view></scroll-view>
+        <view wx:if="{{!seats.length}}" class="empty">该房间尚未配置座位</view>
+        <button wx:if="{{selectedRoom.roomType === 'STUDIO'}}" class="room-score" disabled="{{roomRecord || submitting || uploading || completing}}" bindtap="chooseRoomScore">{{roomRecord ? '工作室整体已评：' + roomRecord.score + ' 分' : '为工作室整体评分'}}</button>
+      </view>
+    </block>
+    <button wx:if="{{selectedTask}}" class="complete" loading="{{completing}}" disabled="{{!scoredCount || submitting || uploading || completing}}" bindtap="completeTask">完成检查任务</button>
+  </view>
+
+  <view class="section-row" bindtap="toggleHistory"><text class="section-label">检查记录 <text class="section-meta">{{records.length}} 条</text></text><text class="quiet-link">{{showHistory ? '收起 ↑' : '展开 ↓'}}</text></view><block wx:if="{{showHistory}}">
+  <view wx:if="{{!records.length}}" class="empty">暂无已提交记录</view>
+  <view wx:for="{{records}}" wx:key="recordId" class="record">
+    <view class="record-head"><text>{{item.roomName}}{{item.workstationNo ? ' · ' + item.workstationNo : ' · 工作室整体'}}</text><text class="grade-text">{{item.scoreText}}</text></view>
+    <text class="muted">状态：{{item.displayStatus}}</text>
+    <text wx:if="{{item.explanation}}">说明：{{item.explanation}}</text>
+    <text wx:if="{{item.issueDescription}}" class="issue">问题：{{item.issueDescription}}</text>
+    <text wx:if="{{item.adminComment}}">管理员意见：{{item.adminComment}}</text>
+    <scroll-view wx:if="{{item.photoList.length}}" scroll-x class="record-photos"><image wx:for="{{item.photoList}}" wx:for-item="photo" wx:key="*this" src="{{photo}}" mode="aspectFill" data-url="{{photo}}" data-urls="{{item.photoList}}" bindtap="previewRecordPhoto"/></scroll-view>
+  </view>
+</block></view>
+<view wx:if="{{ratingVisible && selectedTarget}}" class="rating-overlay">
+  <view class="rating-mask" bindtap="closeRating" catchtouchmove="stopTouch"></view>
+  <view class="rating-dialog">
+    <view class="dialog-header"><text>卫生评分</text><button size="mini" class="dialog-close" disabled="{{submitting || uploading}}" bindtap="closeRating" aria-label="关闭评分弹窗">×</button></view>
+    <view class="dialog-target">{{selectedTarget.label}}</view>
+    <scroll-view scroll-y class="dialog-body">
+      <view class="dialog-content">
+        <view class="score-box"><view class="score-head"><text>卫生评分</text><text class="score-value">{{score}} 分</text></view><slider min="0" max="100" step="1" value="{{score}}" activeColor="#176b5b" bindchanging="onScoreChange" bindchange="onScoreChange"/><input class="score-input" type="number" maxlength="3" value="{{score}}" bindinput="onScoreChange" placeholder="请输入0-100的整数"/></view>
+        <view class="field-label">评定说明</view>
+        <textarea fixed maxlength="2000" placeholder="填写本次评分的依据（选填）" data-field="explanation" value="{{explanation}}" bindinput="onInput"/>
+        <view class="field-label">问题描述</view>
+        <textarea fixed maxlength="2000" placeholder="发现的问题（选填，填写后需上传照片）" data-field="issueDescription" value="{{issueDescription}}" bindinput="onInput"/>
+        <button class="upload-button" loading="{{uploading}}" disabled="{{uploading || submitting}}" bindtap="choosePhoto">上传现场照片（{{photos.length}}/3）</button>
+        <view class="photos"><view wx:for="{{photos}}" wx:key="*this" class="photo-wrap"><image src="{{item}}" mode="aspectFill" data-url="{{item}}" bindtap="previewPhoto"/><text wx:if="{{!submitting && !uploading}}" class="remove" data-index="{{index}}" bindtap="removePhoto">×</text></view></view>
+      </view>
+    </scroll-view>
+    <view class="dialog-footer"><button disabled="{{submitting || uploading}}" bindtap="closeRating">取消</button><button type="primary" loading="{{submitting}}" disabled="{{submitting || uploading}}" bindtap="submit">提交评分</button></view>
+  </view>
+</view>

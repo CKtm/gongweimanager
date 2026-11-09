@@ -1,0 +1,16 @@
+<view class="page">
+  <view class="page-intro"><text class="page-kicker">STUDIO APPLICATION</text><text class="page-title">工作室管理</text><text class="page-caption">申请独立空间，掌握团队工位容量</text></view>
+  <view class="notice">工作室按整间独占；一个导师可以申请多间，但每间工作室只能归属一位导师。</view>
+  <view class="form">
+    <view class="section-title">申请工作室</view>
+    <picker range="{{availableRooms}}" range-key="label" value="{{roomIndex}}" bindchange="onRoomChange"><view class="picker">{{selectedRoomLabel}}</view></picker>
+    <textarea placeholder="请填写申请理由" value="{{reason}}" bindinput="onInput"/>
+    <button type="primary" loading="{{submitting}}" disabled="{{submitting || !availableRooms.length}}" bindtap="submit">提交申请</button>
+  </view>
+  <view class="section-title history">我的工作室</view>
+  <view wx:if="{{!ownedRooms.length}}" class="empty">暂未获得工作室</view>
+  <view wx:for="{{ownedRooms}}" wx:key="roomId" class="item"><view><text class="name">{{item.roomName}}</text><text class="comment">{{item.location || '位置未填写'}}</text></view><view class="numbers"><text>总数 {{item.workstationCount || 0}}</text><text class="remaining">空闲 {{item.availableCount || 0}}</text><text>占用 {{item.inUseCount || 0}}</text></view></view>
+  <view class="section-title history">申请记录</view>
+  <view wx:if="{{!list.length}}" class="empty">暂无申请记录</view>
+  <view wx:for="{{list}}" wx:key="studioApplicationId" class="item"><view><text class="name">{{item.roomName}} · {{item.location || '位置未填写'}}</text><text class="comment">{{item.reason}}</text><text wx:if="{{item.adminComment}}" class="comment">管理员意见：{{item.adminComment}}</text></view><view><text class="status">{{item.statusText}}</text><text class="approved">{{item.workstationCount || 0}} 个工位</text></view></view>
+</view>

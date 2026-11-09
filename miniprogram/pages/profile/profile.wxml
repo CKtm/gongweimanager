@@ -1,0 +1,16 @@
+<view class="page">
+  <view class="page-intro"><text class="page-kicker">PERSONAL CENTER</text><text class="page-title">我的</text><text class="page-caption">个人信息与账号安全</text></view>
+  <view class="header">
+    <view class="avatar">{{avatar}}</view>
+    <view><text class="name">{{profile.nickName || userInfo.nickName || userInfo.userName}}</text><text class="role">{{roleText}}</text></view>
+  </view>
+  <view class="card">
+    <view class="line"><text>登录账号</text><text>{{profile.userName || userInfo.userName || '-'}}</text></view>
+    <view class="line"><text>学号/工号</text><text>{{profile.identityNo || '暂未维护'}}</text></view>
+    <view class="line"><text>业务身份</text><text>{{roleText || '-'}}</text></view>
+    <view class="line" wx:if="{{profile.userType === 'STUDENT' || profile.userType === 'student'}}"><text>所属导师</text><text>{{profile.mentorName || '暂未绑定'}}</text></view>
+  </view>
+  <view wx:if="{{(profile.userType === 'STUDENT' || profile.userType === 'student') && !profile.mentorId}}" class="notice">尚未绑定导师，流动工位申请和退还流程暂不能提交，请联系学院管理员。</view>
+  <view class="section-row"><text class="section-label">安全设置</text><text class="section-meta">管理登录凭据</text></view><button class="password" bindtap="changePassword">修改登录密码 <text>›</text></button><button class="signout" bindtap="logout">退出当前账号</button>
+  <workspace-nav active="profile"/>
+</view>

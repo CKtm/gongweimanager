@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.gongwei.GwAssignmentMapper">
+    <resultMap id="AssignmentResult" type="GwAssignment">
+        <id property="assignmentId" column="assignment_id"/><result property="studentId" column="student_id"/>
+        <result property="studentName" column="student_name"/><result property="workstationId" column="workstation_id"/>
+        <result property="roomId" column="room_id"/><result property="roomName" column="room_name"/>
+        <result property="workstationNo" column="workstation_no"/><result property="workstationType" column="workstation_type"/>
+        <result property="applicationId" column="application_id"/><result property="termCode" column="term_code"/><result property="startedAt" column="started_at"/>
+        <result property="endedAt" column="ended_at"/><result property="operatorId" column="operator_id"/>
+    </resultMap>
+    <sql id="selectAssignmentVo">
+        select a.assignment_id,a.student_id,su.nick_name student_name,a.workstation_id,w.room_id,r.room_name,w.workstation_no,
+               w.workstation_type,a.application_id,a.term_code,a.started_at,a.ended_at,a.operator_id
+        from gw_assignment a join gw_workstation w on w.workstation_id=a.workstation_id
+        left join gw_room r on r.room_id=w.room_id left join sys_user su on su.user_id=a.student_id
+    </sql>
+    <select id="selectAssignmentList" resultMap="AssignmentResult"><include refid="selectAssignmentVo"/><where>
+        <if test="studentId != null">and a.student_id=#{studentId}</if>
+        <if test="mentorId != null">and exists(select 1 from gw_user_profile p where p.user_id=a.student_id and p.mentor_id=#{mentorId})</if>
+        <if test="activeOnly != null and activeOnly">and a.ended_at is null</if>
+    </where> order by a.assignment_id desc</select>
+    <select id="selectActiveByStudent" resultMap="AssignmentResult"><include refid="selectAssignmentVo"/> where a.student_id=#{studentId} and a.ended_at is null limit 1</select>
+    <select id="selectByIdForUpdate" resultMap="AssignmentResult"><include refid="selectAssignmentVo"/> where a.assignment_id=#{assignmentId} for update</select>
+    <insert id="insertAssignment">insert into gw_assignment(student_id,workstation_id,application_id,term_code,started_at,operator_id,create_time) values(#{studentId},#{workstationId},#{applicationId},#{termCode},now(),#{operatorId},now())</insert>
+    <update id="finishAssignment">update gw_assignment set ended_at=now(),operator_id=#{operatorId} where assignment_id=#{assignmentId} and ended_at is null</update>
+    <insert id="insertAudit">
+        insert into gw_audit_log(business_type,business_id,action,operator_id,before_data,after_data,reason,create_time)
+        values('ASSIGNMENT',#{businessId},#{action},#{operatorId},
+               if(#{beforeWorkstationId} is null,null,json_object('studentId',#{studentId},'workstationId',#{beforeWorkstationId})),
+               if(#{afterWorkstationId} is null,null,json_object('studentId',#{studentId},'workstationId',#{afterWorkstationId})),
+               #{reason},now())
+    </insert>
+</mapper>

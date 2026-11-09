@@ -1,0 +1,18 @@
+# WeChat developer machine settings
+project.private.config.json
+project.*.private.config.json
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+node_modules/
+miniprogram_npm/
+dist/
+coverage/
+*.log
+*.rdb
+*.aof
+.env.local
+.env.*.local
+*.pem
+*.key

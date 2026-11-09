@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.gongwei.GwStudioApplicationMapper">
+    <resultMap id="StudioApplicationResult" type="GwStudioApplication">
+        <id property="studioApplicationId" column="studio_application_id"/>
+        <result property="mentorId" column="mentor_id"/><result property="mentorName" column="mentor_name"/>
+        <result property="roomId" column="room_id"/><result property="roomName" column="room_name"/>
+        <result property="location" column="location"/><result property="workstationCount" column="workstation_count"/>
+        <result property="reason" column="reason"/><result property="status" column="status"/>
+        <result property="adminComment" column="admin_comment"/><result property="reviewerId" column="reviewer_id"/>
+        <result property="reviewerName" column="reviewer_name"/><result property="reviewedTime" column="reviewed_time"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+    <sql id="selectApplicationVo">
+        select a.studio_application_id,a.mentor_id,mu.nick_name mentor_name,a.room_id,r.room_name,r.location,
+               (select count(1) from gw_workstation w where w.room_id=a.room_id) workstation_count,
+               a.reason,a.status,a.admin_comment,a.reviewer_id,ru.nick_name reviewer_name,a.reviewed_time,a.create_time
+        from gw_studio_application a
+        left join sys_user mu on mu.user_id=a.mentor_id
+        left join gw_room r on r.room_id=a.room_id
+        left join sys_user ru on ru.user_id=a.reviewer_id
+    </sql>
+    <select id="selectList" resultMap="StudioApplicationResult">
+        <include refid="selectApplicationVo"/><where>
+            <if test="status != null and status != ''">and a.status=#{status}</if>
+            <if test="mentorId != null">and a.mentor_id=#{mentorId}</if>
+        </where> order by a.studio_application_id desc
+    </select>
+    <select id="selectForUpdate" parameterType="long" resultMap="StudioApplicationResult">
+        <include refid="selectApplicationVo"/> where a.studio_application_id=#{studioApplicationId} for update
+    </select>
+    <select id="countPending" resultType="int">
+        select count(1) from gw_studio_application where status='PENDING' and (room_id=#{roomId} or (mentor_id=#{mentorId} and room_id=#{roomId}))
+    </select>
+    <insert id="insertApplication" parameterType="GwStudioApplication" useGeneratedKeys="true" keyProperty="studioApplicationId">
+        insert into gw_studio_application(mentor_id,room_id,reason,status,create_time)
+        values(#{mentorId},#{roomId},#{reason},'PENDING',now())
+    </insert>
+    <update id="review">
+        update gw_studio_application set status=#{status},admin_comment=#{comment},reviewer_id=#{reviewerId},reviewed_time=now(),update_time=now()
+        where studio_application_id=#{studioApplicationId} and status='PENDING'
+    </update>
+    <update id="markReturned">
+        update gw_studio_application set status='RETURNED',admin_comment=concat(ifnull(admin_comment,''),'；解除归属：',#{comment}),
+               reviewer_id=#{reviewerId},reviewed_time=now(),update_time=now()
+        where room_id=#{roomId} and mentor_id=#{mentorId} and status='APPROVED'
+    </update>
+    <insert id="insertAudit">
+        insert into gw_audit_log(business_type,business_id,action,operator_id,after_data,reason,create_time)
+        values('STUDIO_APPLICATION',#{businessId},#{action},#{operatorId},json_object('roomId',#{roomId},'mentorId',#{mentorId}),#{reason},now())
+    </insert>
+</mapper>

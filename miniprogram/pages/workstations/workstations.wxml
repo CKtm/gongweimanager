@@ -1,0 +1,18 @@
+<view class="page">
+  <view class="page-intro"><text class="page-kicker">EXPLORE SPACES</text><text class="page-title">发现你的研究空间</text><text class="page-caption">按房间、类型和状态，快速找到合适的工位</text></view>
+  <view class="summary"><view><text class="number">{{summary.total}}</text><text>工位</text></view><view><text class="number">{{summary.available}}</text><text>空闲</text></view><view><text class="number">{{summary.inUse}}</text><text>使用中</text></view></view>
+  <view class="search-bar"><text class="search-symbol">⌕</text><input placeholder="搜索房间名称或工位编号" value="{{search}}" bindinput="onSearch"/><text wx:if="{{search}}" class="clear-search" bindtap="clearSearch">×</text></view>
+  <view class="filters">
+    <picker range="{{roomOptions}}" range-key="label" value="{{roomIndex}}" data-field="roomIndex" bindchange="onFilter"><view>{{roomLabel}}⌄</view></picker>
+    <picker range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" data-field="typeIndex" bindchange="onFilter"><view>{{typeLabel}}⌄</view></picker>
+    <picker range="{{statusOptions}}" range-key="label" value="{{statusIndex}}" data-field="statusIndex" bindchange="onFilter"><view>{{statusLabel}}⌄</view></picker>
+  </view>
+  <button wx:if="{{isStudent}}" class="apply" size="mini" bindtap="openApplications">申请流动工位</button>
+  <view wx:if="{{!groups.length}}" class="empty">没有符合条件的工位</view>
+  <view wx:for="{{groups}}" wx:key="roomId" class="room">
+    <view class="room-title"><view>{{item.roomName}}<text class="room-type">{{item.roomType === 'MOBILE' ? '流动工位房间' : '工作室'}}</text></view><text>{{item.stations.length}} 个</text></view>
+    <view class="room-meta">{{item.location || '位置未填写'}}<text wx:if="{{item.mentorName}}"> · 导师：{{item.mentorName}}</text></view>
+    <view class="station-grid"><view wx:for="{{item.stations}}" wx:for-item="station" wx:key="workstationId" class="station {{station.statusClass}}"><text class="no">{{station.workstationNo}}</text><text class="type">{{station.workstationType === 'MOBILE' ? '流动' : '固定'}}</text><text class="status">{{station.statusText}}</text><text wx:if="{{station.layoutRow || station.layoutCol}}" class="position">{{station.layoutRow || '-'}}行 / {{station.layoutCol || '-'}}列</text></view></view>
+  </view>
+  <workspace-nav active="spaces"/>
+</view>

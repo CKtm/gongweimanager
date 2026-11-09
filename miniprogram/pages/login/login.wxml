@@ -1,0 +1,18 @@
+<view class="page">
+  <view class="page-intro"><text class="page-kicker">ACCOUNT ACCESS</text><text class="page-title">研究空间，从这里开始</text><text class="page-caption">连接你的工位、团队与校园日常</text></view>
+  <view class="login-mark"><view></view><view></view><view></view><view></view></view><view class="brand">研究生工位管理</view>
+  <view wx:if="{{!forceChange}}" class="panel">
+    <view class="field-label">学院账号</view><input placeholder="请输入学院分配的账号" value="{{username}}" data-field="username" bindinput="onInput" />
+    <view class="field-label">登录密码</view><input password confirm-type="go" bindconfirm="submit" placeholder="请输入登录密码" value="{{password}}" data-field="password" bindinput="onInput" />
+    <button type="primary" loading="{{loading}}" bindtap="submit">登录</button>
+    <text class="tip">使用学院分配的账号密码登录</text>
+  </view>
+  <view wx:else class="panel">
+    <view class="reset-title">首次登录必须修改密码</view>
+    <text class="reset-tip">账号 {{username}} 完成改密前不会登录系统，改密票据5分钟内有效。</text>
+    <input password placeholder="请输入新密码" value="{{newPassword}}" data-field="newPassword" bindinput="onInput" />
+    <input password placeholder="请再次输入新密码" value="{{confirmPassword}}" data-field="confirmPassword" bindinput="onInput" />
+    <button type="primary" loading="{{resetLoading}}" bindtap="resetPassword">确认修改</button>
+    <button class="back-button" bindtap="backToLogin">返回登录</button>
+  </view>
+</view>

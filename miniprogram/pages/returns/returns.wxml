@@ -1,0 +1,37 @@
+<view class="page">
+  <view class="page-intro"><text class="page-kicker">RETURN & RECOVERY</text><text class="page-title">退还与回收</text><text class="page-caption">清理空间，上传照片，跟踪审核进度</text></view>
+  <view wx:if="{{assignment && assignment.workstationType === 'FIXED'}}" class="notice">工作室固定工位由导师管理，学生不能主动申请退还。如需释放工位，请联系导师处理。</view>
+  <view class="form" wx:if="{{assignment && assignment.workstationType === 'MOBILE' && !hasPendingReturn}}">
+    <view class="section-title">退还流动工位：{{assignment.roomName}} · {{assignment.workstationNo}}</view>
+    <view class="hint">请先清空个人物品，再上传1～3张清理后的现场照片。</view>
+    <textarea placeholder="请填写退还原因" value="{{reason}}" bindinput="onInput"/>
+    <button type="default" loading="{{uploading}}" data-target="initial" bindtap="choosePhoto">选择并上传清理照片（{{photos.length}}/3）</button>
+    <view class="photos"><view wx:for="{{photos}}" wx:key="*this" class="photo-wrap"><image src="{{item}}" mode="aspectFill" data-url="{{item}}" data-urls="{{photos}}" bindtap="previewPhoto"/><text class="remove" data-target="initial" data-index="{{index}}" bindtap="removePhoto">×</text></view></view>
+    <button type="primary" loading="{{submitting}}" disabled="{{submitting || uploading}}" bindtap="submit">提交退还申请</button>
+  </view>
+  <view wx:if="{{assignment && assignment.workstationType === 'MOBILE' && hasPendingReturn}}" class="notice">该流动工位已有退还或主动收回流程，请按下方记录中的状态继续处理。</view>
+  <view wx:if="{{!assignment}}" class="empty">当前没有可退还的流动工位</view>
+
+  <view wx:if="{{reuploadReturnId}}" class="form reupload-form">
+    <view class="section-title">重新上传清理照片</view>
+    <view class="hint">原照片未通过审核，请重新清理后上传1～3张新照片。</view>
+    <button type="default" loading="{{uploading}}" data-target="reupload" bindtap="choosePhoto">选择并上传新照片（{{reuploadPhotos.length}}/3）</button>
+    <view class="photos"><view wx:for="{{reuploadPhotos}}" wx:key="*this" class="photo-wrap"><image src="{{item}}" mode="aspectFill" data-url="{{item}}" data-urls="{{reuploadPhotos}}" bindtap="previewPhoto"/><text class="remove" data-target="reupload" data-index="{{index}}" bindtap="removePhoto">×</text></view></view>
+    <view class="action-row"><button size="mini" bindtap="cancelReupload">取消</button><button size="mini" type="primary" loading="{{reuploading}}" disabled="{{reuploading || uploading}}" bindtap="submitReupload">提交照片</button></view>
+  </view>
+
+  <view class="section-title history">退还与收回记录</view>
+  <view wx:if="{{!list.length}}" class="empty">暂无退还或收回记录</view>
+  <view wx:for="{{list}}" wx:key="returnId" class="item">
+    <view class="content">
+      <view class="row"><text class="name">{{item.roomName}} · {{item.workstationNo}}</text><text class="status">{{item.statusText}}</text></view>
+      <text class="source">{{item.sourceText}}</text>
+      <text class="desc">{{item.reason}}</text>
+      <text wx:if="{{item.mentorComment}}" class="comment">导师意见：{{item.mentorComment}}</text>
+      <text wx:if="{{item.adminComment}}" class="comment">管理员意见：{{item.adminComment}}</text>
+      <view wx:if="{{item.photoList.length}}" class="photos record-photos"><image wx:for="{{item.photoList}}" wx:for-item="photo" wx:key="*this" src="{{photo}}" mode="aspectFill" data-url="{{photo}}" data-urls="{{item.photoList}}" bindtap="previewPhoto"/></view>
+      <button wx:if="{{item.status === 'WAIT_CLEAR' && item.sourceType}}" size="mini" type="primary" data-id="{{item.returnId}}" bindtap="startReupload">上传清理照片</button>
+      <button wx:elif="{{item.status === 'WAIT_CLEAR'}}" size="mini" type="primary" data-id="{{item.returnId}}" bindtap="legacyClear">确认已清空（历史流程）</button>
+    </view>
+  </view>
+</view>

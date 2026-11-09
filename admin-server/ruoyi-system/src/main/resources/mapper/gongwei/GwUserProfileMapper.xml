@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.gongwei.GwUserProfileMapper">
+    <select id="selectMentorId" parameterType="long" resultType="long">select mentor_id from gw_user_profile where user_id=#{userId}</select>
+    <resultMap id="ProfileResult" type="GwUserProfile"><id property="userId" column="user_id"/><result property="userName" column="user_name"/><result property="nickName" column="nick_name"/><result property="identityNo" column="identity_no"/><result property="userType" column="user_type"/><result property="mentorId" column="mentor_id"/><result property="mentorName" column="mentor_name"/></resultMap>
+    <select id="selectByUserId" parameterType="long" resultMap="ProfileResult">select u.user_id,u.user_name,u.nick_name,p.identity_no,p.user_type,p.mentor_id,m.nick_name mentor_name from sys_user u left join gw_user_profile p on p.user_id=u.user_id left join sys_user m on m.user_id=p.mentor_id where u.user_id=#{userId} and u.del_flag='0'</select>
+    <select id="selectUserIdByIdentityNo" parameterType="string" resultType="long">select user_id from gw_user_profile where identity_no=#{identityNo} limit 1</select>
+    <select id="selectList" resultMap="ProfileResult">select p.user_id,u.user_name,u.nick_name,p.identity_no,p.user_type,p.mentor_id,m.nick_name mentor_name from gw_user_profile p left join sys_user u on u.user_id=p.user_id left join sys_user m on m.user_id=p.mentor_id <where><if test="userId != null">and p.user_id=#{userId}</if><if test="identityNo != null and identityNo != ''">and p.identity_no like concat('%',#{identityNo},'%')</if><if test="userType != null and userType != ''">and lower(p.user_type)=lower(#{userType})</if></where> order by p.user_id</select>
+    <select id="selectRoleUsers" resultMap="ProfileResult">select distinct u.user_id,u.user_name,u.nick_name,p.identity_no,p.user_type,p.mentor_id,m.nick_name mentor_name from sys_user u inner join sys_user_role ur on ur.user_id=u.user_id inner join sys_role r on r.role_id=ur.role_id left join gw_user_profile p on p.user_id=u.user_id left join sys_user m on m.user_id=p.mentor_id where r.role_key=#{roleKey} and r.status='0' and r.del_flag='0' and u.status='0' and u.del_flag='0' order by u.nick_name,u.user_name</select>
+    <select id="selectStudentsByMentor" resultMap="ProfileResult">select p.user_id,u.user_name,u.nick_name,p.identity_no,p.user_type,p.mentor_id,m.nick_name mentor_name from gw_user_profile p inner join sys_user u on u.user_id=p.user_id left join sys_user m on m.user_id=p.mentor_id where p.mentor_id=#{mentorId} and upper(p.user_type)='STUDENT' and u.status='0' and u.del_flag='0' order by u.nick_name,u.user_name</select>
+    <select id="countActiveUserByRole" resultType="int">select count(distinct u.user_id) from sys_user u inner join sys_user_role ur on ur.user_id=u.user_id inner join sys_role r on r.role_id=ur.role_id where u.user_id=#{userId} and u.status='0' and u.del_flag='0' and r.role_key=#{roleKey} and r.status='0' and r.del_flag='0'</select>
+    <select id="countBlockingStudentBusiness" resultType="int">
+        select (select count(1) from gw_assignment where student_id=#{userId})
+             + (select count(1) from gw_mobile_application where student_id=#{userId})
+             + (select count(1) from gw_return_application where student_id=#{userId})
+    </select>
+    <select id="countBlockingMentorBusiness" resultType="int">
+        select (select count(1) from gw_user_profile where mentor_id=#{userId})
+             + (select count(1) from gw_room where mentor_id=#{userId})
+             + (select count(1) from gw_studio_application where mentor_id=#{userId} and status='PENDING')
+    </select>
+    <select id="countBlockingInspectorBusiness" resultType="int">
+        select (select count(1) from gw_inspection_task where inspector_id=#{userId})
+             + (select count(1) from gw_inspection_record where inspector_id=#{userId})
+    </select>
+    <insert id="upsert" parameterType="GwUserProfile">insert into gw_user_profile(user_id,identity_no,user_type,mentor_id) values(#{userId},#{identityNo},#{userType},#{mentorId}) on duplicate key update identity_no=values(identity_no),user_type=values(user_type),mentor_id=values(mentor_id)</insert>
+    <insert id="bindMentor">insert into gw_user_profile(user_id,identity_no,user_type,mentor_id) select u.user_id,u.user_name,'STUDENT',#{mentorId} from sys_user u where u.user_id=#{studentId} and u.status='0' and u.del_flag='0' on duplicate key update user_type='STUDENT',mentor_id=values(mentor_id)</insert>
+    <update id="unbindMentor">update gw_user_profile set mentor_id=null where user_id=#{studentId} and upper(user_type)='STUDENT'</update>
+</mapper>

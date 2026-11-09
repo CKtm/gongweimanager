@@ -11,7 +11,9 @@
     "pages/quota/quota",
     "pages/mentor/mentor",
     "pages/inspection/inspection",
-    "pages/admin/admin"
+    "pages/admin/admin",
+    "pages/admin-manage/admin-manage",
+    "pages/account/account"
   ],
   "window": {
     "navigationBarTextStyle": "black",

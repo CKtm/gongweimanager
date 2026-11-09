@@ -15,5 +15,6 @@ Page({
       request.post('/logout').catch(()=>{}).finally(()=>{wx.removeStorageSync('token');wx.removeStorageSync('userInfo');wx.reLaunch({url:'/pages/login/login'})})
     }})
   },
+  editAccount() { wx.navigateTo({url:'/pages/account/account'}) },
   changePassword() { wx.navigateTo({ url: '../password/password' }) }
 })

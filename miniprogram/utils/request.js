@@ -21,12 +21,13 @@ function request(method, url, data) {
   })
 }
 
-function upload(url, filePath) {
+function upload(url, filePath, name = 'file', formData = {}) {
   return new Promise((resolve, reject) => {
     wx.uploadFile({
       url: config.baseUrl + url,
       filePath,
-      name: 'file',
+      name,
+      formData,
       header: { Authorization: wx.getStorageSync('token') ? 'Bearer ' + wx.getStorageSync('token') : '' },
       success(res) {
         let body = {}
@@ -39,4 +40,4 @@ function upload(url, filePath) {
   })
 }
 
-module.exports = { get: (url, data) => request('GET', url, data), post: (url, data) => request('POST', url, data), put: (url, data) => request('PUT', url, data), upload }
+module.exports = { get: (url, data) => request('GET', url, data), post: (url, data) => request('POST', url, data), put: (url, data) => request('PUT', url, data), delete: (url, data) => request('DELETE', url, data), upload }

@@ -1,0 +1,2 @@
+@import "../../styles/page.wxss";
+.field-label{margin:24rpx 0 12rpx;font-size:25rpx}.avatar-image{display:block;width:100rpx;height:100rpx;border-radius:50%;margin:12rpx auto}.form input{width:100%}

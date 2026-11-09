@@ -10,12 +10,6 @@
             <span class="info-value plaintext">{{ info.nickName }}</span>
           </div>
         </el-col>
-        <el-col :span="12">
-          <div class="info-item">
-            <label class="info-label">归属部门：</label>
-            <span class="info-value plaintext">{{ (info.dept && info.dept.deptName) }}</span>
-          </div>
-        </el-col>
       </el-row>
       <el-row :gutter="20" class="mb8">
         <el-col :span="12">

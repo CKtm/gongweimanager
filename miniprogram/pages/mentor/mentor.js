@@ -1,10 +1,15 @@
 const request = require('../../utils/request')
 
 Page({
+  onPullDownRefresh() {
+    return Promise.resolve().then(() => this.load()).catch(() => {}).finally(() => wx.stopPullDownRefresh())
+  },
+
   data: {
     activeTab: 'team', loading: false, team: [], unassignedStudents: [], applications: [], returns: [], ownedRooms: [], fixedStations: [],
     studentIndex: 0, stationIndex: 0, selectedStudentName: '暂无未分配学生', selectedStationName: '暂无空闲固定工位',
-    termCode: '', submitting: false, capacity: { total: 0, available: 0, inUse: 0 }, availableFixedCount: 0
+    usageStart: '', usageEnd: '',
+    submitting: false, capacity: { total: 0, available: 0, inUse: 0 }, availableFixedCount: 0
   },
   onLoad(options) { if (options.tab === 'review') this.setData({activeTab:'review'}) },
   onShow() { this.load() },
@@ -18,17 +23,21 @@ Page({
   load() {
     this.setData({ loading: true })
     const userInfo = wx.getStorageSync('userInfo') || {}
-    Promise.all([
+    return Promise.all([
       request.get('/gw/profile/team'), request.get('/gw/assignment/list', { activeOnly: true }),
       request.get('/gw/application/list', { status: 'PENDING_MENTOR' }), request.get('/gw/return/list', { status: 'PENDING_MENTOR' }),
-      request.get('/gw/room/list', { roomType: 'STUDIO' }), request.get('/gw/workstation/list', { workstationType: 'FIXED', status: 'AVAILABLE' })
+      request.get('/gw/room/list', { roomType: 'STUDIO' }), request.get('/gw/workstation/list', { workstationType: 'FIXED', mentorId: userInfo.userId })
     ]).then(([teamRes, assignmentRes, appRes, returnRes, roomRes, stationRes]) => {
       const active = {}
       ;(assignmentRes.data || []).filter(item => !item.endedAt).forEach(item => { active[item.studentId] = item })
       const team = (teamRes.data || []).map(item => Object.assign({}, item, { assignment: active[item.userId] || null }))
       const unassignedStudents = team.filter(item => !item.assignment)
-      const ownedRooms = (roomRes.data || []).filter(item => Number(item.mentorId) === Number(userInfo.userId))
-      const fixedStations = (stationRes.data || []).filter(item => item.roomStatus === 'NORMAL' && Number(item.mentorId) === Number(userInfo.userId)).map(item => Object.assign({}, item, { label: item.roomName + ' · ' + item.workstationNo }))
+      const ownedStations = (stationRes.data || []).filter(item => Number(item.mentorId) === Number(userInfo.userId))
+      const ownedRooms = (roomRes.data || []).filter(room => ownedStations.some(s => Number(s.roomId) === Number(room.roomId))).map(room => {
+        const seats = ownedStations.filter(s => Number(s.roomId) === Number(room.roomId))
+        return {...room, workstationCount: seats.length, availableCount: seats.filter(s => s.status === 'AVAILABLE' && s.roomStatus === 'NORMAL').length, inUseCount: seats.filter(s => ['IN_USE','PENDING_RETURN'].includes(s.status)).length}
+      })
+      const fixedStations = ownedStations.filter(item => item.status === 'AVAILABLE' && item.roomStatus === 'NORMAL' && Number(item.mentorId) === Number(userInfo.userId)).map(item => Object.assign({}, item, { label: item.roomName + ' · ' + item.workstationNo }))
       const availableFixedCount = fixedStations.length
       const capacity = ownedRooms.reduce((sum, room) => ({ total: sum.total + Number(room.workstationCount || 0), available: sum.available + Number(room.availableCount || 0), inUse: sum.inUse + Number(room.inUseCount || 0) }), { total: 0, available: 0, inUse: 0 })
       const studentIndex = Math.min(this.data.studentIndex, Math.max(0, unassignedStudents.length - 1))
@@ -55,17 +64,28 @@ Page({
   },
   onStudentChange(e) { const studentIndex = Number(e.detail.value); const item = this.data.unassignedStudents[studentIndex]; this.setData({ studentIndex, selectedStudentName: item ? (item.nickName || item.userName) : '暂无未分配学生' }) },
   onStationChange(e) { const stationIndex = Number(e.detail.value); const item = this.data.fixedStations[stationIndex]; this.setData({ stationIndex, selectedStationName: item ? item.label : '暂无空闲固定工位' }) },
-  onInput(e) { this.setData({ termCode: e.detail.value }) },
+  onUsageDate(e) {
+    if (this.data.submitting) return
+    const field = e.currentTarget.dataset.field
+    if (!['usageStart', 'usageEnd'].includes(field)) return
+    const value = e.detail.value
+    const next = { [field]: value }
+    if (field === 'usageStart' && this.data.usageEnd && this.data.usageEnd < value) next.usageEnd = ''
+    this.setData(next)
+  },
   assignFixed() {
+    if (this.data.submitting) return
     const student = this.data.unassignedStudents[this.data.studentIndex]
     const station = this.data.fixedStations[this.data.stationIndex]
-    const termCode = (this.data.termCode || '').trim()
+    const { usageStart, usageEnd } = this.data
+    const termCode = usageStart + '~' + usageEnd
     if (!student) return wx.showToast({ title: '暂无未分配学生', icon: 'none' })
     if (!station) return wx.showToast({ title: '暂无空闲固定工位', icon: 'none' })
-    if (!termCode) return wx.showToast({ title: '请填写学期', icon: 'none' })
+    if (!usageStart || !usageEnd) return wx.showToast({ title: '请选择开始和结束日期', icon: 'none' })
+    if (usageEnd < usageStart) return wx.showToast({ title: '结束日期不能早于开始日期', icon: 'none' })
     this.setData({ submitting: true })
     request.post('/gw/assignment/fixed', { studentId: student.userId, workstationId: station.workstationId, termCode }).then(() => {
-      wx.showToast({ title: '固定工位已分配' }); this.setData({ termCode: '' }); this.load()
+      wx.showToast({ title: '固定工位已分配' }); this.setData({ usageStart: '', usageEnd: '' }); this.load()
     }).finally(() => this.setData({ submitting: false }))
   },
   previewReturnPhoto(e) { const urls = e.currentTarget.dataset.urls || []; wx.previewImage({ current: e.currentTarget.dataset.url, urls }) },

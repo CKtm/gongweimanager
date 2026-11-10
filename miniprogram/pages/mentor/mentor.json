@@ -1,1 +1,4 @@
-{ "navigationBarTitleText": "导师工作台" }
+{
+  "navigationBarTitleText": "导师工作台",
+  "enablePullDownRefresh": true
+}

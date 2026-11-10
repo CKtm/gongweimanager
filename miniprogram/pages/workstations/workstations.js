@@ -1,6 +1,10 @@
 const request = require('../../utils/request')
 const STATUS = { AVAILABLE: '空闲', IN_USE: '使用中', PENDING_RETURN: '待回收', DISABLED: '停用' }
 Page({
+  onPullDownRefresh() {
+    return Promise.resolve().then(() => this.load()).catch(() => {}).finally(() => wx.stopPullDownRefresh())
+  },
+
   data: {
     search: '', loading: false, all: [], rooms: [], groups: [], summary: { total: 0, available: 0, inUse: 0 }, isStudent: false,
     roomOptions: [{ label: '全部房间', value: '' }], roomIndex: 0, roomLabel: '全部房间',
@@ -14,7 +18,7 @@ Page({
   },
   load() {
     this.setData({ loading: true })
-    Promise.all([request.get('/gw/room/list'), request.get('/gw/workstation/list')]).then(([rooms, stations]) => {
+    return Promise.all([request.get('/gw/room/list'), request.get('/gw/workstation/list')]).then(([rooms, stations]) => {
       const roomRows = rooms.data || []
       const roomOptions = [{ label: '全部房间', value: '' }].concat(roomRows.map(item => ({ label: item.roomName, value: item.roomId })))
       const all = (stations.data || []).map(item => Object.assign({}, item, { statusText: STATUS[item.status] || item.status, statusClass: String(item.status || '').toLowerCase() }))

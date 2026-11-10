@@ -26,16 +26,14 @@ public class GwStudioApplicationController extends BaseController {
     @Log(title="工作室申请", businessType=BusinessType.INSERT)
     @PostMapping
     public AjaxResult submit(@RequestBody ApplyBody body) {
-        if (SecurityUtils.isGongweiAdmin() || !SecurityUtils.hasRole("mentor")) return error("只有导师可以申请工作室");
-        return toAjax(studioService.submit(getUserId(), body.roomId, body.reason));
+        return error("工作室申请已停用，固定工位由管理员直接划分给导师");
     }
 
     @PreAuthorize("@ss.hasPermi('gw:studio:review')")
     @Log(title="工作室申请审批", businessType=BusinessType.UPDATE)
     @PostMapping("/{studioApplicationId}/review")
     public AjaxResult review(@PathVariable Long studioApplicationId, @RequestBody ReviewBody body) {
-        if (!SecurityUtils.isGongweiAdmin()) return error("只有管理员可以审批工作室申请");
-        return toAjax(studioService.review(studioApplicationId, body.status, body.comment, getUserId()));
+        return error("工作室申请审批已停用，请在工位管理中直接划分导师");
     }
 
     @PreAuthorize("@ss.hasPermi('gw:studio:release')")

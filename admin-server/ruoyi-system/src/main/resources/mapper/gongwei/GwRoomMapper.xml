@@ -16,30 +16,32 @@
         <result property="disabledCount" column="disabled_count"/>
     </resultMap>
     <sql id="selectRoomVo">
-        select r.room_id,r.room_name,r.location,r.room_type,r.mentor_id,u.nick_name mentor_name,r.status,r.remark,
+        select r.room_id,r.room_name,r.location,r.room_type,
+               case when count(distinct w.mentor_id)=1 then min(w.mentor_id) else null end mentor_id,
+               group_concat(distinct u.nick_name order by u.nick_name separator '、') mentor_name,r.status,r.remark,
                count(w.workstation_id) workstation_count,
                coalesce(sum(w.status='AVAILABLE'),0) available_count,
                coalesce(sum(w.status in ('IN_USE','PENDING_RETURN')),0) in_use_count,
                coalesce(sum(w.status='DISABLED'),0) disabled_count
         from gw_room r
-        left join sys_user u on u.user_id=r.mentor_id
         left join gw_workstation w on w.room_id=r.room_id
+        left join sys_user u on u.user_id=w.mentor_id
     </sql>
     <select id="selectRoomList" parameterType="GwRoom" resultMap="GwRoomResult">
         <include refid="selectRoomVo"/>
         <where>
             <if test="roomName != null and roomName != ''">and r.room_name like concat('%', #{roomName}, '%')</if>
             <if test="roomType != null and roomType != ''">and r.room_type = #{roomType}</if>
-            <if test="mentorId != null">and r.mentor_id = #{mentorId}</if>
+            <if test="mentorId != null">and exists(select 1 from gw_workstation owned where owned.room_id=r.room_id and owned.mentor_id=#{mentorId})</if>
             <if test="status != null and status != ''">and r.status = #{status}</if>
-            <if test="availableForApply != null and availableForApply">and r.room_type='STUDIO' and r.status='NORMAL' and r.mentor_id is null</if>
+            <if test="availableForApply != null and availableForApply">and r.room_type='STUDIO' and r.status='NORMAL' and exists(select 1 from gw_workstation free where free.room_id=r.room_id) and not exists(select 1 from gw_workstation owned where owned.room_id=r.room_id and (owned.mentor_id is not null or owned.status not in ('AVAILABLE','DISABLED')))</if>
         </where>
-        group by r.room_id,r.room_name,r.location,r.room_type,r.mentor_id,u.nick_name,r.status,r.remark
+        group by r.room_id,r.room_name,r.location,r.room_type,r.status,r.remark
         order by r.room_id desc
     </select>
     <select id="selectRoomById" parameterType="long" resultMap="GwRoomResult">
         <include refid="selectRoomVo"/> where r.room_id=#{roomId}
-        group by r.room_id,r.room_name,r.location,r.room_type,r.mentor_id,u.nick_name,r.status,r.remark
+        group by r.room_id,r.room_name,r.location,r.room_type,r.status,r.remark
     </select>
     <select id="selectRoomForUpdate" parameterType="long" resultMap="GwRoomResult">
         select r.room_id,r.room_name,r.location,r.room_type,r.mentor_id,u.nick_name mentor_name,r.status,r.remark,

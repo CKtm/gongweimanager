@@ -13,6 +13,7 @@ public class GwWorkstation extends BaseEntity {
     private String roomName;
     private String roomType;
     private String roomStatus;
+    @Excel(name = "归属导师ID", prompt = "固定工位可选；流动工位留空")
     private Long mentorId;
     private String mentorName;
     @Excel(name = "工位编号")

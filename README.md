@@ -20,6 +20,15 @@
 
 后续对此远程仓库的变更，应在本仓库对应目录中提交，或从本地独立项目同步经过验证的修改后提交。不要直接推送三个独立项目覆盖此仓库的 `main` 分支。
 
+## 当前更新（2026-11-10）
+
+- 小程序业务页面支持下拉刷新；学生卫生评分新增闲置、游戏、吸烟、违规电器和其他多选项。
+- 固定工位由管理员逐个或批量划给导师，导师再分配给自己的学生；同一工作室可共享，一个导师可跨房间拥有工位。
+- 取消工作室申请和审批，历史申请保留；流动申请按导师所有房间内的可用固定工位校验。
+- 小程序使用期限统一通过日历选择开始和结束日期，保存具体日期并校验区间；到期仍由导师主动收回。
+- 现有数据库升级顺序：先备份，再执行 `admin-server/sql/gongwei_shared_fixed_seats_upgrade.sql`、`admin-server/sql/gongwei_admin_direct_fixed_seats_upgrade.sql`。详细规则见 `admin-server/doc/shared-fixed-seats.md`。
+- 当前开发机已执行上述升级；其他环境按需执行迁移，不要重复初始化已有数据库。
+
 ## 开发与启动
 
 - 后端：Java 17、Maven、MySQL、Redis；在 `admin-server/ruoyi-admin/src/main/resources/` 将两个 `*.example.yml` 模板复制为对应的 `application.yml` 和 `application-druid.yml`，填写本地配置并替换 `CHANGE_ME` 值，然后在 IDEA 启动 `RuoYiApplication`。详细步骤见 `admin-server/LOCAL_CONFIG.md`。

@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <el-alert title="固定工位由导师直接分配给自己的学生，系统按导师名下工作室的真实空闲工位校验，不再使用数字配额。" type="info" :closable="false" class="mb20"/>
+    <el-alert title="固定工位由导师直接分配给自己的学生，系统按导师在所有房间名下的真实空闲固定工位校验，不再使用数字配额。" type="info" :closable="false" class="mb20"/>
     <el-form :inline="true" class="mb8"><el-form-item><el-checkbox v-model="activeOnly">只看有效占用</el-checkbox></el-form-item><el-form-item><el-button type="primary" @click="load">查询</el-button><el-button type="success" v-hasPermi="['gw:assignment:assign']" @click="openFixed">分配固定工位</el-button></el-form-item></el-form>
     <el-table v-loading="loading" :data="list" border>
       <el-table-column prop="assignmentId" label="记录ID" width="85"/><el-table-column prop="studentName" label="学生" min-width="110"/><el-table-column prop="roomName" label="房间" min-width="120"/><el-table-column prop="workstationNo" label="工位" width="90"/><el-table-column prop="workstationType" label="类型" width="90"><template #default="{row}">{{ row.workstationType==='FIXED'?'固定':'流动' }}</template></el-table-column><el-table-column prop="termCode" label="学期" width="110"/><el-table-column label="来源" width="100"><template #default="{row}">{{ row.applicationId?'流动申请':'导师分配' }}</template></el-table-column><el-table-column prop="startedAt" label="开始时间" width="165"/><el-table-column prop="endedAt" label="结束时间" width="165"/>
@@ -13,7 +13,7 @@
         <el-form-item label="学期" prop="termCode"><el-input v-model="fixedForm.termCode" placeholder="如 2026-秋"/></el-form-item>
         <el-form-item label="固定工位" prop="workstationId"><el-select v-model="fixedForm.workstationId" filterable style="width:100%"><el-option v-for="item in fixedStations" :key="item.workstationId" :label="`${item.roomName} / ${item.workstationNo}`" :value="item.workstationId"/></el-select></el-form-item>
       </el-form>
-      <el-alert title="系统将校验师生关系、工作室独占归属、学生全局单工位和工位实时状态。" type="info" :closable="false"/>
+      <el-alert title="系统将校验师生关系、固定工位导师归属、学生全局单工位和工位实时状态。" type="info" :closable="false"/>
       <template #footer><el-button @click="fixedOpen=false">取消</el-button><el-button type="primary" @click="submitFixed">确认分配</el-button></template>
     </el-dialog>
 

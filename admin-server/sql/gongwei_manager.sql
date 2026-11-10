@@ -54,6 +54,7 @@ create table if not exists gw_workstation (
   room_id bigint not null comment '工作室ID',
   workstation_no varchar(50) not null comment '房间内编号',
   workstation_type varchar(20) not null comment 'FIXED/MOBILE',
+  mentor_id bigint default null comment '固定工位归属导师',
   layout_row int default 0 comment '网格行',
   layout_col int default 0 comment '网格列',
   status varchar(20) not null default 'AVAILABLE' comment 'AVAILABLE/IN_USE/PENDING_RETURN/DISABLED',
@@ -64,6 +65,7 @@ create table if not exists gw_workstation (
   primary key (workstation_id),
   unique key uk_gw_workstation_no (room_id, workstation_no),
   key idx_gw_workstation_room (room_id),
+  key idx_gw_workstation_mentor (mentor_id),
   constraint fk_gw_workstation_room foreign key (room_id) references gw_room(room_id)
 ) engine=innodb default charset=utf8mb4 comment='工位台账';
 
@@ -315,3 +317,12 @@ update sys_menu set status='0'
 where menu_id in (1,100,101,108,500,501,1000,1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1011,1039,1040,1041,1042,1043,1044,1045)
    or menu_id between 2000 and 2202;
 
+
+-- 停用导师工作室申请，历史记录保留；重复执行安全。
+start transaction;
+update gw_studio_application set status='CANCELLED',
+ admin_comment=concat(ifnull(admin_comment,''),'；业务调整：固定工位改由管理员直接划分，本申请取消'),update_time=now()
+ where status='PENDING';
+update sys_menu set menu_name='工作室历史',remark='只读历史申请；固定工位由管理员直接划分' where menu_id=2004;
+update sys_menu set status='1' where perms in ('gw:studio:apply','gw:studio:review');
+commit;

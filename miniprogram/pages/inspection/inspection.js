@@ -1,19 +1,27 @@
 const request = require('../../utils/request')
+const ISSUE_TYPES = ['闲置', '游戏', '吸烟', '违规电器', '其他']
+const emptyIssues = () => ({ selectedIssues: [], issueOptions: ISSUE_TYPES.map(value => ({ value, checked: false })) })
 
 const statusText = status => ({ PENDING: '待检查', IN_PROGRESS: '检查中', SUBMITTED: '已上报', VERIFIED: '已核实', ARCHIVED: '已归档', CLOSED: '已关闭' })[status] || status
 
 Page({
+  onPullDownRefresh() {
+    if (this.data.ratingVisible || this.busy()) { wx.stopPullDownRefresh(); return }
+    const taskId = this.data.selectedTask && this.data.selectedTask.taskId
+    return Promise.resolve().then(() => this.load(taskId == null ? undefined : taskId)).catch(() => {}).finally(() => wx.stopPullDownRefresh())
+  },
+
   data: {
     tasks: [], taskIndex: -1, selectedTask: null,
     rooms: [], stations: [], selectedRoom: null, seats: [], boardWidth: 600, boardHeight: 200, selectedTarget: null, roomRecord: null,
-    score: 80, explanation: '', issueDescription: '', photos: [], records: [],
+    score: 80, explanation: '', issueDescription: '', ...emptyIssues(), photos: [], records: [],
     showHistory: false, scoredCount: 0,
     submitting: false, uploading: false, completing: false, ratingVisible: false
   },
   toggleHistory() { this.setData({showHistory:!this.data.showHistory}) },
   onShow() { if (!this.data.ratingVisible && !this.busy()) this.load() },
   load(preferredTaskId) {
-    Promise.all([request.get('/gw/inspection/task/list'), request.get('/gw/inspection/record/list')]).then(([taskRes, recordRes]) => {
+    return Promise.all([request.get('/gw/inspection/task/list'), request.get('/gw/inspection/record/list')]).then(([taskRes, recordRes]) => {
       const tasks = (taskRes.data || []).filter(item => ['PENDING', 'IN_PROGRESS'].indexOf(item.status) >= 0).map(item => ({ ...item, displayStatus: statusText(item.status), taskLabel: item.taskName + ' · ' + item.scheduledDate }))
       const records = (recordRes.data || []).map(item => ({
         ...item,
@@ -22,10 +30,9 @@ Page({
         photoList: item.photoUrls ? item.photoUrls.split(',') : []
       }))
       const taskIndex = preferredTaskId == null ? (tasks.length === 1 ? 0 : -1) : tasks.findIndex(item => Number(item.taskId) === Number(preferredTaskId))
-      this.setData({ tasks, records }, () => {
-        if (taskIndex >= 0) this.selectTask(taskIndex)
-        else this.resetSelection()
-      })
+      this.setData({ tasks, records })
+      if (taskIndex >= 0) return this.selectTask(taskIndex)
+      this.resetSelection()
     })
   },
   onTask(e) {
@@ -38,7 +45,7 @@ Page({
     const selectionVersion = (this.selectionVersion || 0) + 1
     this.selectionVersion = selectionVersion
     const previousRoomId = this.data.selectedRoom && this.data.selectedRoom.roomId
-    Promise.all([request.get('/gw/room/list'), request.get('/gw/workstation/list')]).then(([roomRes, stationRes]) => {
+    return Promise.all([request.get('/gw/room/list'), request.get('/gw/workstation/list')]).then(([roomRes, stationRes]) => {
       if (selectionVersion !== this.selectionVersion) return
       const taskRecords = this.data.records.filter(item => Number(item.taskId) === Number(selectedTask.taskId))
       const stations = stationRes.data || []
@@ -48,7 +55,7 @@ Page({
       }))
       this.setData({
         taskIndex, selectedTask, rooms, stations, selectedTaskRecords: taskRecords, selectedTarget: null,
-        score: 80, explanation: '', issueDescription: '', photos: [], scoredCount: taskRecords.length
+        score: 80, explanation: '', issueDescription: '', ...emptyIssues(), photos: [], scoredCount: taskRecords.length
       })
       this.openRoomById(previousRoomId || (rooms[0] && rooms[0].roomId))
     })
@@ -75,7 +82,7 @@ Page({
     })
     const roomRecord = records.find(r => r.workstationId == null && Number(r.roomId) === Number(roomId)) || null
     this.setData({selectedRoom, seats, roomRecord, boardWidth: maxCol * 194, boardHeight: maxRow * 164,
-      selectedTarget: null, score: 80, explanation: '', issueDescription: '', photos: []})
+      selectedTarget: null, score: 80, explanation: '', issueDescription: '', ...emptyIssues(), photos: []})
   },
   chooseSeat(e) {
     if (this.busy()) return
@@ -91,14 +98,20 @@ Page({
     this.chooseTarget({roomId: this.data.selectedRoom.roomId, workstationId: null, label: this.data.selectedRoom.roomName + ' · 工作室整体'})
   },
   chooseTarget(selectedTarget) {
-    this.setData({selectedTarget, ratingVisible: true, score: 80, explanation: '', issueDescription: '', photos: []})
+    this.setData({selectedTarget, ratingVisible: true, score: 80, explanation: '', issueDescription: '', ...emptyIssues(), photos: []})
   },
   closeRating() {
     if (this.busy()) return
-    this.setData({ratingVisible: false, selectedTarget: null, score: 80, explanation: '', issueDescription: '', photos: []})
+    this.setData({ratingVisible: false, selectedTarget: null, score: 80, explanation: '', issueDescription: '', ...emptyIssues(), photos: []})
   },
   stopTouch() {},
   onInput(e) { this.setData({ [e.currentTarget.dataset.field]: e.detail.value }) },
+  onIssueChange(e) {
+    if (this.busy() || !this.data.selectedTarget || this.data.selectedTarget.workstationId == null) return
+    const values = Array.isArray(e.detail.value) ? e.detail.value : []
+    const selectedIssues = ISSUE_TYPES.filter(value => values.includes(value))
+    this.setData({ selectedIssues, issueOptions: ISSUE_TYPES.map(value => ({ value, checked: selectedIssues.includes(value) })) })
+  },
   onScoreChange(e) {
     const raw = Number(e.detail.value)
     if (!Number.isFinite(raw)) return
@@ -128,8 +141,11 @@ Page({
     if (!this.data.selectedTarget) return wx.showToast({ title: '请点击座位或选择工作室整体评分', icon: 'none' })
     const score = Number(this.data.score)
     if (!Number.isInteger(score) || score < 0 || score > 100) return wx.showToast({ title: '请输入0到100的整数评分', icon: 'none' })
-    if (this.data.issueDescription.trim() && !this.data.photos.length) return wx.showToast({ title: '记录问题时请上传现场照片', icon: 'none' })
     const target = this.data.selectedTarget
+    const selectedIssues = target.workstationId == null ? [] : ISSUE_TYPES.filter(value => this.data.selectedIssues.includes(value))
+    const issueDescription = [selectedIssues.length ? '检查项目：' + selectedIssues.join('、') : '', this.data.issueDescription.trim()].filter(Boolean).join('\n')
+    if (issueDescription.length > 2000) return wx.showToast({ title: '问题描述过长，请适当精简', icon: 'none' })
+    if (issueDescription && !this.data.photos.length) return wx.showToast({ title: '记录问题时请上传现场照片', icon: 'none' })
     const taskId = this.data.selectedTask.taskId
     this.setData({ submitting: true })
     request.post('/gw/inspection/record', {
@@ -138,11 +154,11 @@ Page({
       workstationId: target.workstationId || null,
       score,
       explanation: this.data.explanation,
-      issueDescription: this.data.issueDescription,
+      issueDescription,
       photoUrls: this.data.photos.join(',')
     }).then(() => {
       wx.showToast({ title: '上报成功' })
-      this.setData({ ratingVisible: false, selectedTarget: null, score: 80, explanation: '', issueDescription: '', photos: [] })
+      this.setData({ ratingVisible: false, selectedTarget: null, score: 80, explanation: '', issueDescription: '', ...emptyIssues(), photos: [] })
       this.load(taskId)
     }).catch(() => {}).finally(() => this.setData({ submitting: false }))
   },
@@ -162,7 +178,7 @@ Page({
   resetSelection() {
     this.setData({
       taskIndex: -1, selectedTask: null, rooms: [], stations: [], seats: [], selectedRoom: null, selectedTarget: null, roomRecord: null, selectedTaskRecords: [],
-      score: 80, explanation: '', issueDescription: '', photos: [], scoredCount: 0, ratingVisible: false
+      score: 80, explanation: '', issueDescription: '', ...emptyIssues(), photos: [], scoredCount: 0, ratingVisible: false
     })
   }
 })

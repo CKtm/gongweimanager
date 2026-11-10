@@ -1,6 +1,16 @@
 const request = require('../../utils/request')
 
 Page({
+  onPullDownRefresh() {
+    if (!wx.getStorageSync('token')) { wx.stopPullDownRefresh(); return }
+    return Promise.all([
+      this.data.isStudent ? this.loadStudent() : Promise.resolve(),
+      this.data.isMentor ? this.loadMentor() : Promise.resolve(),
+      this.data.isInspector ? this.loadInspector() : Promise.resolve(),
+      this.data.isAdmin ? this.loadAdmin() : Promise.resolve()
+    ]).catch(() => {}).finally(() => wx.stopPullDownRefresh())
+  },
+
   data: {
     userInfo: null,
     roleText: '',
@@ -36,19 +46,21 @@ Page({
     if (isAdmin) this.loadAdmin()
   },
   loadStudent() {
-    request.get('/gw/assignment/my').then(res => this.setData({ workstation: (res.data || [])[0] || null })).catch(() => {})
-    request.get('/gw/application/list').then(res => {
-      const rows = res.data || []
-      this.setData({ applicationCount: rows.filter(item => ['PENDING_MENTOR', 'PENDING_ADMIN', 'WAIT_ALLOC'].indexOf(item.status) >= 0).length })
-    }).catch(() => {})
+    return Promise.all([
+      request.get('/gw/assignment/my').then(res => this.setData({ workstation: (res.data || [])[0] || null })),
+      request.get('/gw/application/list').then(res => {
+        const rows = res.data || []
+        this.setData({ applicationCount: rows.filter(item => ['PENDING_MENTOR', 'PENDING_ADMIN', 'WAIT_ALLOC'].indexOf(item.status) >= 0).length })
+      })
+    ]).catch(() => {})
   },
   loadMentor() {
-    Promise.all([request.get('/gw/application/list', { status: 'PENDING_MENTOR' }), request.get('/gw/return/list', { status: 'PENDING_MENTOR' })]).then(([apps, returns]) => {
+    return Promise.all([request.get('/gw/application/list', { status: 'PENDING_MENTOR' }), request.get('/gw/return/list', { status: 'PENDING_MENTOR' })]).then(([apps, returns]) => {
       this.setData({ mentorApplicationCount: (apps.data || []).length, mentorReturnCount: (returns.data || []).length })
     }).catch(() => {})
   },
   loadInspector() {
-    request.get('/gw/inspection/task/list').then(res => {
+    return request.get('/gw/inspection/task/list').then(res => {
       const rows = res.data || []
       this.setData({ inspectionTaskCount: rows.filter(item => ['PENDING', 'IN_PROGRESS'].indexOf(item.status) >= 0).length })
     }).catch(() => {})
@@ -56,7 +68,7 @@ Page({
   loadAdmin() {
     const {can}=require('../../utils/admin'),user=wx.getStorageSync('userInfo')||{}
     const read=(url,permission)=>can(user,permission)?request.get(url).then(r=>r.data||r.rows||[]):Promise.resolve([])
-    Promise.all([read('/gw/application/list','gw:application:list'),read('/gw/studio/list','gw:studio:list'),read('/gw/return/list','gw:return:query'),read('/gw/inspection/record/list','gw:inspection:record:list')]).then(([apps,studios,returns,records])=>this.setData({adminPending:apps.filter(x=>x.status==='PENDING_ADMIN').length+studios.filter(x=>x.status==='PENDING').length+returns.filter(x=>['PENDING_ADMIN','WAIT_VERIFY'].includes(x.status)).length,adminWaiting:apps.filter(x=>x.status==='WAIT_ALLOC').length,adminInspection:records.filter(x=>x.status==='SUBMITTED'&&x.taskStatus==='SUBMITTED').length})).catch(()=>{})
+    return Promise.all([read('/gw/application/list','gw:application:list'),read('/gw/return/list','gw:return:query'),read('/gw/inspection/record/list','gw:inspection:record:list')]).then(([apps,returns,records])=>this.setData({adminPending:apps.filter(x=>x.status==='PENDING_ADMIN').length+returns.filter(x=>['PENDING_ADMIN','WAIT_VERIFY'].includes(x.status)).length,adminWaiting:apps.filter(x=>x.status==='WAIT_ALLOC').length,adminInspection:records.filter(x=>x.status==='SUBMITTED'&&x.taskStatus==='SUBMITTED').length})).catch(()=>{})
   },
   openAdmin(e) { const tab=e.currentTarget.dataset.tab || 'reviews';wx.navigateTo({url:'/pages/admin/admin?tab='+tab}) },
   openWorkstations() { wx.navigateTo({ url: '../workstations/workstations' }) },

@@ -1,1 +1,4 @@
-{ "navigationBarTitleText": "流动工位申请" }
+{
+  "navigationBarTitleText": "流动工位申请",
+  "enablePullDownRefresh": true
+}

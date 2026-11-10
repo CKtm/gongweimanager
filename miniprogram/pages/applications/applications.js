@@ -3,10 +3,14 @@ const STATUS = { PENDING_MENTOR: '待导师审核', PENDING_ADMIN: '待管理员
 const PENDING = ['PENDING_MENTOR', 'PENDING_ADMIN', 'WAIT_ALLOC']
 
 Page({
+  onPullDownRefresh() {
+    return Promise.resolve().then(() => this.load()).catch(() => {}).finally(() => wx.stopPullDownRefresh())
+  },
+
   data: { list: [], reason: '', start: '', end: '', submitting: false, eligible: false, eligibilityText: '正在校验申请资格', fixedAvailable: 0 },
   onShow() { this.load() },
   load() {
-    Promise.all([
+    return Promise.all([
       request.get('/gw/application/list'), request.get('/gw/assignment/my'),
       request.get('/gw/profile/me'), request.get('/gw/workstation/list', { workstationType: 'FIXED', status: 'AVAILABLE' })
     ]).then(([appRes, assignmentRes, profileRes, stationRes]) => {
@@ -25,7 +29,7 @@ Page({
     })
   },
   onInput(e) { this.setData({ reason: e.detail.value }) },
-  onDate(e) { this.setData({ [e.currentTarget.dataset.field]: e.detail.value }) },
+  onDate(e) { const field=e.currentTarget.dataset.field,value=e.detail.value,next={[field]:value};if(field==='start'&&this.data.end&&this.data.end<value)next.end='';this.setData(next) },
   submit() {
     if (!this.data.eligible) return wx.showToast({ title: this.data.eligibilityText, icon: 'none', duration: 2600 })
     const reason = (this.data.reason || '').trim()

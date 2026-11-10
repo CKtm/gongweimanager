@@ -11,7 +11,7 @@
       <scroll-view scroll-x class="room-tabs"><view wx:for="{{rooms}}" wx:key="roomId" class="room-tab {{selectedRoom.roomId === item.roomId ? 'active' : ''}}" data-id="{{item.roomId}}" bindtap="openRoom"><text>{{item.roomName}}</text><text class="room-meta">{{item.roomType === 'STUDIO' ? '工作室' : '流动工位房间'}} · {{item.seatCount}} 座 · 已评 {{item.scoreCount}}</text></view></scroll-view>
       <view wx:if="{{!rooms.length}}" class="empty">暂无可查看的房间</view>
       <view wx:if="{{selectedRoom}}" class="room-panel">
-        <view class="room-title"><text>{{selectedRoom.roomName}}</text><text class="muted">{{selectedRoom.mentorName ? '导师：' + selectedRoom.mentorName : ''}}</text></view>
+        <view class="room-title"><text>{{selectedRoom.roomName}}</text><text class="muted">{{selectedRoom.mentorName ? '工位导师：' + selectedRoom.mentorName : ''}}</text></view>
         <view class="legend"><text class="legend-used">● 可评分</text><text class="legend-done">● 已评分</text><text>● 空闲 / 停用</text></view>
         <view class="board-hint">点击学生座位评分 · 可左右滑动查看座位</view>
         <scroll-view scroll-x class="seat-scroll"><view class="seat-board" style="width:{{boardWidth}}rpx;height:{{boardHeight}}rpx"><view wx:for="{{seats}}" wx:key="workstationId" class="seat {{item.state}} {{selectedTarget.workstationId === item.workstationId ? 'selected-seat' : ''}}" style="left:{{item.left}}rpx;top:{{item.top}}rpx" data-id="{{item.workstationId}}" bindtap="chooseSeat"><text class="seat-no">{{item.workstationNo}}</text><text class="seat-person">{{item.studentName || '空座位'}}</text><text class="seat-state">{{item.stateText}}</text></view></view></scroll-view>
@@ -43,6 +43,16 @@
         <view class="score-box"><view class="score-head"><text>卫生评分</text><text class="score-value">{{score}} 分</text></view><slider min="0" max="100" step="1" value="{{score}}" activeColor="#176b5b" bindchanging="onScoreChange" bindchange="onScoreChange"/><input class="score-input" type="number" maxlength="3" value="{{score}}" bindinput="onScoreChange" placeholder="请输入0-100的整数"/></view>
         <view class="field-label">评定说明</view>
         <textarea fixed maxlength="2000" placeholder="填写本次评分的依据（选填）" data-field="explanation" value="{{explanation}}" bindinput="onInput"/>
+        <view wx:if="{{selectedTarget.workstationId != null}}" class="student-issues">
+          <view class="field-label">检查项目<text class="issue-hint">可多选，发现问题时勾选</text></view>
+          <checkbox-group class="issue-options" bindchange="onIssueChange">
+            <label wx:for="{{issueOptions}}" wx:key="value" class="issue-option {{item.checked ? 'issue-option-checked' : ''}}">
+              <checkbox value="{{item.value}}" checked="{{item.checked}}" color="#176b5b" disabled="{{submitting || uploading || completing}}"/>
+              <text>{{item.value}}</text>
+            </label>
+          </checkbox-group>
+          <view class="issue-note">勾选问题后，请上传现场照片；“其他”可在下方补充说明。</view>
+        </view>
         <view class="field-label">问题描述</view>
         <textarea fixed maxlength="2000" placeholder="发现的问题（选填，填写后需上传照片）" data-field="issueDescription" value="{{issueDescription}}" bindinput="onInput"/>
         <button class="upload-button" loading="{{uploading}}" disabled="{{uploading || submitting}}" bindtap="choosePhoto">上传现场照片（{{photos.length}}/3）</button>

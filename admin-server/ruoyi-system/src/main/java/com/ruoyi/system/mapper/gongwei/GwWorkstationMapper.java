@@ -17,4 +17,6 @@ public interface GwWorkstationMapper {
     int countByRoomAndNo(@Param("roomId") Long roomId, @Param("workstationNo") String workstationNo);
     int updateStatus(@Param("workstationId") Long workstationId, @Param("status") String status);
     int countAvailableFixedByMentor(Long mentorId);
+    List<GwWorkstation> selectRoomWorkstationsForUpdate(Long roomId);
+    int updateMentor(@Param("workstationId") Long workstationId, @Param("mentorId") Long mentorId, @Param("operator") String operator);
 }

@@ -8,6 +8,7 @@ public interface IGwWorkstationService {
     GwWorkstation selectWorkstationById(Long workstationId);
     int insertWorkstation(GwWorkstation workstation);
     int updateWorkstation(GwWorkstation workstation);
+    int assignMentor(List<Long> workstationIds, Long mentorId, String operator);
     int deleteWorkstationById(Long workstationId);
     String importWorkstations(List<GwWorkstation> workstations, String operator);
 }

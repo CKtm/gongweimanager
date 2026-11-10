@@ -47,6 +47,7 @@ public class GwWorkstationController extends BaseController {
     @Log(title = "工位管理", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody GwWorkstation workstation) {
+        if (!SecurityUtils.isGongweiAdmin()) throw new com.ruoyi.common.exception.ServiceException("仅管理员可以维护工位与导师归属");
         workstation.setCreateBy(getUsername());
         return toAjax(workstationService.insertWorkstation(workstation));
     }
@@ -55,6 +56,7 @@ public class GwWorkstationController extends BaseController {
     @Log(title = "工位批量导入", businessType = BusinessType.IMPORT)
     @PostMapping("/importData")
     public AjaxResult importData(MultipartFile file) throws Exception {
+        if (!SecurityUtils.isGongweiAdmin()) throw new com.ruoyi.common.exception.ServiceException("仅管理员可以维护工位与导师归属");
         ExcelUtil<GwWorkstation> util = new ExcelUtil<>(GwWorkstation.class);
         List<GwWorkstation> rows = util.importExcel(file.getInputStream());
         return success(workstationService.importWorkstations(rows, getUsername()));
@@ -69,8 +71,22 @@ public class GwWorkstationController extends BaseController {
     @Log(title = "工位管理", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody GwWorkstation workstation) {
+        if (!SecurityUtils.isGongweiAdmin()) throw new com.ruoyi.common.exception.ServiceException("仅管理员可以维护工位与导师归属");
         workstation.setUpdateBy(getUsername());
         return toAjax(workstationService.updateWorkstation(workstation));
+    }
+
+    public static class MentorAllocation {
+        public List<Long> workstationIds;
+        public Long mentorId;
+    }
+
+    @PreAuthorize("@ss.hasPermi('gw:workstation:edit')")
+    @Log(title = "固定工位划分导师", businessType = BusinessType.UPDATE)
+    @PutMapping("/mentor")
+    public AjaxResult assignMentor(@RequestBody MentorAllocation allocation) {
+        if (!SecurityUtils.isGongweiAdmin()) throw new com.ruoyi.common.exception.ServiceException("仅管理员可以划分工位归属");
+        return toAjax(workstationService.assignMentor(allocation.workstationIds, allocation.mentorId, getUsername()));
     }
 
     @PreAuthorize("@ss.hasPermi('gw:workstation:remove')")

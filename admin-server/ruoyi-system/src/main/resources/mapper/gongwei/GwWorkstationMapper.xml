@@ -18,11 +18,11 @@
         <result property="studentName" column="student_name"/>
     </resultMap>
     <sql id="selectWorkstationVo">
-        select w.workstation_id, w.room_id, r.room_name, r.room_type, r.status room_status, r.mentor_id, mu.nick_name mentor_name, w.workstation_no, w.workstation_type,
+        select w.workstation_id, w.room_id, r.room_name, r.room_type, r.status room_status, w.mentor_id, mu.nick_name mentor_name, w.workstation_no, w.workstation_type,
                w.layout_row, w.layout_col, w.status, a.student_id, su.nick_name student_name
         from gw_workstation w
         left join gw_room r on r.room_id = w.room_id
-        left join sys_user mu on mu.user_id = r.mentor_id
+        left join sys_user mu on mu.user_id = w.mentor_id
         left join gw_assignment a on a.workstation_id = w.workstation_id and a.ended_at is null
         left join sys_user su on su.user_id = a.student_id
     </sql>
@@ -32,7 +32,7 @@
             <if test="roomId != null">and w.room_id = #{roomId}</if>
             <if test="workstationType != null and workstationType != ''">and w.workstation_type = #{workstationType}</if>
             <if test="roomType != null and roomType != ''">and r.room_type = #{roomType}</if>
-            <if test="mentorId != null">and r.mentor_id = #{mentorId}</if>
+            <if test="mentorId != null">and w.mentor_id = #{mentorId}</if>
             <if test="status != null and status != ''">and w.status = #{status}</if>
             <if test="studentId != null">and a.student_id = #{studentId}</if>
             <if test="workstationNo != null and workstationNo != ''">and w.workstation_no like concat('%', #{workstationNo}, '%')</if>
@@ -46,12 +46,12 @@
         <include refid="selectWorkstationVo"/> where w.workstation_id = #{workstationId} for update
     </select>
     <insert id="insertWorkstation" parameterType="GwWorkstation" useGeneratedKeys="true" keyProperty="workstationId">
-        insert into gw_workstation(room_id, workstation_no, workstation_type, layout_row, layout_col, status, create_by, create_time)
-        values(#{roomId}, #{workstationNo}, #{workstationType}, #{layoutRow}, #{layoutCol}, ifnull(#{status}, 'AVAILABLE'), #{createBy}, now())
+        insert into gw_workstation(room_id, mentor_id, workstation_no, workstation_type, layout_row, layout_col, status, create_by, create_time)
+        values(#{roomId}, #{mentorId}, #{workstationNo}, #{workstationType}, #{layoutRow}, #{layoutCol}, ifnull(#{status}, 'AVAILABLE'), #{createBy}, now())
     </insert>
     <update id="updateWorkstation" parameterType="GwWorkstation">
         update gw_workstation
-        set room_id = #{roomId}, workstation_no = #{workstationNo}, workstation_type = #{workstationType},
+        set room_id = #{roomId}, mentor_id = #{mentorId}, workstation_no = #{workstationNo}, workstation_type = #{workstationType},
             layout_row = #{layoutRow}, layout_col = #{layoutCol}, status = #{status},
             update_by = #{updateBy}, update_time = now()
         where workstation_id = #{workstationId}
@@ -70,7 +70,13 @@
     </update>
     <select id="countAvailableFixedByMentor" parameterType="long" resultType="int">
         select count(1) from gw_workstation w join gw_room r on r.room_id=w.room_id
-        where r.mentor_id=#{mentorId} and r.room_type='STUDIO' and r.status='NORMAL'
+        where w.mentor_id=#{mentorId} and r.room_type='STUDIO' and r.status='NORMAL'
           and w.workstation_type='FIXED' and w.status='AVAILABLE'
     </select>
+    <select id="selectRoomWorkstationsForUpdate" resultMap="GwWorkstationResult">
+        <include refid="selectWorkstationVo"/> where w.room_id=#{roomId} order by w.workstation_id for update
+    </select>
+    <update id="updateMentor">
+        update gw_workstation set mentor_id=#{mentorId},update_by=#{operator},update_time=now() where workstation_id=#{workstationId}
+    </update>
 </mapper>

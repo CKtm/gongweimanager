@@ -1,1 +1,4 @@
-{ "navigationBarTitleText": "卫生检查" }
+{
+  "navigationBarTitleText": "卫生检查",
+  "enablePullDownRefresh": true
+}

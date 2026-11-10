@@ -22,7 +22,7 @@
       <div class="station-grid" :style="gridStyle"><div v-for="item in workstationList" :key="item.workstationId" class="station-card" :class="item.status.toLowerCase()" :style="stationStyle(item)" @click="handleEdit(item)"><b>{{ item.workstationNo }}</b><small>{{ item.workstationType === 'FIXED' ? '固定' : '流动' }}</small><span>{{ statusText(item.status) }}</span><em v-if="item.studentName">{{ item.studentName }}</em></div></div>
     </div>
 
-    <el-dialog v-model="open" :title="title" width="520px" append-to-body><el-form ref="formRef" :model="form" :rules="rules" label-width="100px"><el-alert v-if="occupied" title="使用中或待回收工位只能调整布局信息，不能直接改变房间或状态。" type="warning" :closable="false" class="mb20"/><el-form-item label="房间" prop="roomId"><el-select v-model="form.roomId" :disabled="occupied" style="width:100%" @change="syncType"><el-option v-for="item in rooms" :key="item.roomId" :label="`${item.roomName}（${item.roomType==='STUDIO'?'固定':'流动'}）`" :value="item.roomId"/></el-select></el-form-item><el-form-item label="工位号" prop="workstationNo"><el-input v-model="form.workstationNo"/></el-form-item><el-form-item label="工位类型"><el-input :model-value="form.workstationType==='FIXED'?'固定工位':'流动工位'" disabled/><div class="el-form-item-msg">工位类型由所属房间自动确定</div></el-form-item><el-form-item label="布局行"><el-input-number v-model="form.layoutRow" :min="0"/></el-form-item><el-form-item label="布局列"><el-input-number v-model="form.layoutCol" :min="0"/></el-form-item><el-form-item label="状态"><el-select v-model="form.status" :disabled="occupied" style="width:100%"><el-option label="可用" value="AVAILABLE"/><el-option label="停用" value="DISABLED"/></el-select></el-form-item></el-form><template #footer><el-button type="primary" @click="submitForm">确定</el-button><el-button @click="open=false">取消</el-button></template></el-dialog>
+    <el-dialog v-model="open" :title="title" width="520px" append-to-body><el-form ref="formRef" :model="form" :rules="rules" label-width="100px"><el-alert v-if="occupied" title="使用中或待回收工位只能调整布局信息，不能直接改变房间或状态。" type="warning" :closable="false" class="mb20"/><el-form-item label="房间" prop="roomId"><el-select v-model="form.roomId" :disabled="occupied" style="width:100%" @change="syncType"><el-option v-for="item in rooms" :key="item.roomId" :label="`${item.roomName}（${item.roomType==='STUDIO'?'固定':'流动'}）`" :value="item.roomId"/></el-select></el-form-item><el-form-item label="工位号" prop="workstationNo"><el-input v-model="form.workstationNo"/></el-form-item><el-form-item label="工位类型"><el-input :model-value="form.workstationType==='FIXED'?'固定工位':'流动工位'" disabled/><div class="el-form-item-msg">工位类型由所属房间自动确定</div></el-form-item><el-form-item v-if="form.workstationType==='FIXED'" label="归属导师"><el-select v-model="form.mentorId" clearable :disabled="occupied" style="width:100%"><el-option v-for="m in mentors" :key="m.userId" :label="m.nickName || m.userName" :value="m.userId"/></el-select></el-form-item><el-form-item label="布局行"><el-input-number v-model="form.layoutRow" :min="0"/></el-form-item><el-form-item label="布局列"><el-input-number v-model="form.layoutCol" :min="0"/></el-form-item><el-form-item label="状态"><el-select v-model="form.status" :disabled="occupied" style="width:100%"><el-option label="可用" value="AVAILABLE"/><el-option label="停用" value="DISABLED"/></el-select></el-form-item></el-form><template #footer><el-button type="primary" @click="submitForm">确定</el-button><el-button @click="open=false">取消</el-button></template></el-dialog>
     <excel-import-dialog ref="importRef" title="工位批量导入" action="/gw/workstation/importData" template-action="/gw/workstation/importTemplate" template-file-name="workstation_template" :show-update-support="false" @success="getList" />
   </div>
 </template>
@@ -30,10 +30,13 @@
 <script setup name="GwWorkstation">
 import { computed, reactive, ref } from 'vue'
 import ExcelImportDialog from '@/components/ExcelImportDialog'
+import request from '@/utils/request'
 import { listRoom } from '@/api/gongwei/room'
 import { addWorkstation, delWorkstation, listWorkstation, updateWorkstation } from '@/api/gongwei/workstation'
 const { proxy } = getCurrentInstance()
 const route=useRoute()
+const mentors=ref([])
+request.get('/gw/profile/options',{params:{roleKey:'mentor'}}).then(res=>mentors.value=res.data||[])
 const loading=ref(false), workstationList=ref([]), rooms=ref([]), open=ref(false), title=ref(''), form=ref({}), viewMode=ref('table')
 const queryParams=reactive({roomId:undefined,workstationNo:undefined,workstationType:undefined,status:undefined})
 if(route.query.roomId)queryParams.roomId=Number(route.query.roomId)
@@ -52,7 +55,7 @@ function handleImport(){proxy.$refs.importRef.open()}
 function handleEdit(row){form.value={...row};title.value='修改工位';open.value=true}
 function changeStatus(row,status){updateWorkstation({...row,status}).then(()=>{proxy.$modal.msgSuccess(status==='DISABLED'?'已停用':'已恢复');getList()})}
 function handleDelete(row){proxy.$modal.confirm(`仅无占用、无未结业务的空闲工位可删除。是否删除“${row.workstationNo}”？`).then(()=>delWorkstation(row.workstationId)).then(()=>{proxy.$modal.msgSuccess('删除成功');getList()}).catch(()=>{})}
-function submitForm(){proxy.$refs.formRef.validate(valid=>{if(!valid)return;(form.value.workstationId?updateWorkstation:addWorkstation)(form.value).then(()=>{proxy.$modal.msgSuccess('保存成功');open.value=false;getList()})})}
+function submitForm(){form.value.mentorId=form.value.workstationType==='FIXED'?(form.value.mentorId||null):null;proxy.$refs.formRef.validate(valid=>{if(!valid)return;(form.value.workstationId?updateWorkstation:addWorkstation)(form.value).then(()=>{proxy.$modal.msgSuccess('保存成功');open.value=false;getList()})})}
 loadRooms();getList()
 </script>
 

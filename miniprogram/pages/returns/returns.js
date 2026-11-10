@@ -11,13 +11,17 @@ const STATUS = {
 const SOURCE = { STUDENT: '学生主动退还', MENTOR: '导师主动收回', ADMIN: '管理员主动收回' }
 
 Page({
+  onPullDownRefresh() {
+    return Promise.resolve().then(() => this.load()).catch(() => {}).finally(() => wx.stopPullDownRefresh())
+  },
+
   data: {
     list: [], assignment: null, hasPendingReturn: false, reason: '', photos: [], submitting: false, uploading: false,
     reuploadReturnId: null, reuploadPhotos: [], reuploading: false
   },
   onShow() { this.load() },
   load() {
-    Promise.all([request.get('/gw/assignment/my'), request.get('/gw/return/list')]).then(([a, r]) => {
+    return Promise.all([request.get('/gw/assignment/my'), request.get('/gw/return/list')]).then(([a, r]) => {
       const list = (r.data || []).map(item => Object.assign({}, item, {
         statusText: item.status === 'WAIT_CLEAR' && !item.sourceType ? '待确认已清空（历史流程）' : (STATUS[item.status] || item.status),
         sourceText: SOURCE[item.sourceType] || '退还申请',

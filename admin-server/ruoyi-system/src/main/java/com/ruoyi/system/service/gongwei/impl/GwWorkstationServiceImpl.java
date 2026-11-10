@@ -20,6 +20,8 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
     private GwWorkstationMapper workstationMapper;
     @Autowired
     private GwRoomMapper roomMapper;
+    @Autowired
+    private com.ruoyi.system.mapper.gongwei.GwUserProfileMapper profileMapper;
 
     @Override
     public List<GwWorkstation> selectWorkstationList(GwWorkstation workstation) {
@@ -53,8 +55,9 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
         if (current.getStudentId() != null || "IN_USE".equals(current.getStatus()) || "PENDING_RETURN".equals(current.getStatus())) {
             if (!current.getRoomId().equals(workstation.getRoomId())
                 || !current.getWorkstationType().equals(workstation.getWorkstationType())
-                || !current.getStatus().equals(workstation.getStatus())) {
-                throw new ServiceException("使用中或待回收工位不能改变所属房间、类型或状态");
+                || !current.getStatus().equals(workstation.getStatus())
+                || !java.util.Objects.equals(current.getMentorId(), workstation.getMentorId())) {
+                throw new ServiceException("使用中或待回收工位不能改变所属房间、归属导师、类型或状态");
             }
         }
         return workstationMapper.updateWorkstation(workstation);
@@ -93,6 +96,25 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
         return "成功导入 " + workstations.size() + " 个工位";
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int assignMentor(List<Long> workstationIds, Long mentorId, String operator) {
+        if (workstationIds == null || workstationIds.isEmpty() || workstationIds.size() > 200 || workstationIds.stream().anyMatch(java.util.Objects::isNull)) throw new ServiceException("请选择1至200个固定工位");
+        validateMentor(mentorId);
+        List<Long> ids = workstationIds.stream().distinct().sorted().toList();
+        for (Long id : ids) {
+            GwWorkstation seat = workstationMapper.selectWorkstationForUpdate(id);
+            if (seat == null || !"FIXED".equals(seat.getWorkstationType()) || !"STUDIO".equals(seat.getRoomType())) throw new ServiceException("只能划分工作室内的固定工位");
+            if (!java.util.Objects.equals(seat.getMentorId(), mentorId) && (seat.getStudentId() != null || !java.util.Set.of("AVAILABLE", "DISABLED").contains(seat.getStatus()))) throw new ServiceException("工位使用中或正在回收，请先释放后再更换导师");
+            workstationMapper.updateMentor(id, mentorId, operator);
+        }
+        return ids.size();
+    }
+
+    private void validateMentor(Long mentorId) {
+        if (mentorId != null && profileMapper.countActiveUserByRole(mentorId, "mentor") == 0) throw new ServiceException("归属导师不存在、已停用或不具备导师角色");
+    }
+
     private void validate(GwWorkstation workstation) {
         if (workstation == null || workstation.getRoomId() == null || workstation.getWorkstationNo() == null || workstation.getWorkstationNo().isBlank()) throw new ServiceException("房间和工位编号不能为空");
         if (!"FIXED".equals(workstation.getWorkstationType()) && !"MOBILE".equals(workstation.getWorkstationType())) throw new ServiceException("工位类型不合法");
@@ -111,5 +133,7 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
             throw new ServiceException("工位类型必须与房间类型一致：工作室只能创建固定工位，流动房间只能创建流动工位");
         }
         workstation.setWorkstationType(expected);
+        if ("MOBILE".equals(expected) && workstation.getMentorId() != null) throw new ServiceException("流动工位不能划归导师");
+        validateMentor(workstation.getMentorId());
     }
 }

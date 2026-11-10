@@ -16,7 +16,7 @@
     </select>
     <select id="countBlockingMentorBusiness" resultType="int">
         select (select count(1) from gw_user_profile where mentor_id=#{userId})
-             + (select count(1) from gw_room where mentor_id=#{userId})
+             + (select count(1) from gw_workstation where mentor_id=#{userId})
              + (select count(1) from gw_studio_application where mentor_id=#{userId} and status='PENDING')
     </select>
     <select id="countBlockingInspectorBusiness" resultType="int">

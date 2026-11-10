@@ -40,14 +40,14 @@
     <view class="dialog-target">{{selectedTarget.label}}</view>
     <scroll-view scroll-y class="dialog-body">
       <view class="dialog-content">
-        <view class="score-box"><view class="score-head"><text>卫生评分</text><text class="score-value">{{score}} 分</text></view><slider min="0" max="100" step="1" value="{{score}}" activeColor="#176b5b" bindchanging="onScoreChange" bindchange="onScoreChange"/><input class="score-input" type="number" maxlength="3" value="{{score}}" bindinput="onScoreChange" placeholder="请输入0-100的整数"/></view>
+        <view class="score-box"><view class="score-head"><text>卫生评分</text><text class="score-value">{{score}} 分</text></view><slider min="0" max="100" step="1" value="{{score}}" activeColor="#0f62fe" bindchanging="onScoreChange" bindchange="onScoreChange"/><input class="score-input" type="number" maxlength="3" value="{{score}}" bindinput="onScoreChange" placeholder="请输入0-100的整数"/></view>
         <view class="field-label">评定说明</view>
         <textarea fixed maxlength="2000" placeholder="填写本次评分的依据（选填）" data-field="explanation" value="{{explanation}}" bindinput="onInput"/>
         <view wx:if="{{selectedTarget.workstationId != null}}" class="student-issues">
           <view class="field-label">检查项目<text class="issue-hint">可多选，发现问题时勾选</text></view>
           <checkbox-group class="issue-options" bindchange="onIssueChange">
             <label wx:for="{{issueOptions}}" wx:key="value" class="issue-option {{item.checked ? 'issue-option-checked' : ''}}">
-              <checkbox value="{{item.value}}" checked="{{item.checked}}" color="#176b5b" disabled="{{submitting || uploading || completing}}"/>
+              <checkbox value="{{item.value}}" checked="{{item.checked}}" color="#0f62fe" disabled="{{submitting || uploading || completing}}"/>
               <text>{{item.value}}</text>
             </label>
           </checkbox-group>

@@ -1,18 +1,62 @@
-<view class="page">
-  <view class="page-intro"><text class="page-kicker">EXPLORE SPACES</text><text class="page-title">发现你的研究空间</text><text class="page-caption">按房间、类型和状态，快速找到合适的工位</text></view>
-  <view class="summary"><view><text class="number">{{summary.total}}</text><text>工位</text></view><view><text class="number">{{summary.available}}</text><text>空闲</text></view><view><text class="number">{{summary.inUse}}</text><text>使用中</text></view></view>
-  <view class="search-bar"><text class="search-symbol">⌕</text><input placeholder="搜索房间名称或工位编号" value="{{search}}" bindinput="onSearch"/><text wx:if="{{search}}" class="clear-search" bindtap="clearSearch">×</text></view>
-  <view class="filters">
-    <picker range="{{roomOptions}}" range-key="label" value="{{roomIndex}}" data-field="roomIndex" bindchange="onFilter"><view>{{roomLabel}}⌄</view></picker>
-    <picker range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" data-field="typeIndex" bindchange="onFilter"><view>{{typeLabel}}⌄</view></picker>
-    <picker range="{{statusOptions}}" range-key="label" value="{{statusIndex}}" data-field="statusIndex" bindchange="onFilter"><view>{{statusLabel}}⌄</view></picker>
+<view class="studios-page">
+  <view class="top-shell" style="padding-top:{{statusBarHeight}}px">
+    <view class="top-bar" style="height:{{navigationHeight}}px;padding-right:{{capsuleInset}}px">
+      <text class="page-heading">空间总览</text>
+      <view class="top-actions">
+        <button class="icon-button {{searchOpen ? 'is-active' : ''}}" bindtap="toggleSearch" aria-label="搜索房间或工位"><image src="/assets/studios/search.png" class="tool-icon"/></button>
+        <button class="icon-button {{activeFilterCount ? 'is-active' : ''}}" bindtap="openFilters" aria-label="筛选空间"><image src="/assets/studios/filter.png" class="tool-icon"/><text wx:if="{{activeFilterCount}}" class="filter-badge">{{activeFilterCount}}</text></button>
+      </view>
+    </view>
+    <view wx:if="{{searchOpen}}" class="search-panel">
+      <image src="/assets/studios/search.png" class="search-icon"/>
+      <input class="search-input" placeholder="搜索房间、位置、导师或工位编号" value="{{search}}" focus="{{searchOpen}}" bindinput="onSearch" confirm-type="search" maxlength="80"/>
+      <button wx:if="{{search}}" class="clear-button" bindtap="clearSearch" aria-label="清空搜索"><image src="/assets/studios/close.png" class="small-icon"/></button>
+    </view>
   </view>
-  <button wx:if="{{isStudent}}" class="apply" size="mini" bindtap="openApplications">申请流动工位</button>
-  <view wx:if="{{!groups.length}}" class="empty">没有符合条件的工位</view>
-  <view wx:for="{{groups}}" wx:key="roomId" class="room">
-    <view class="room-title"><view>{{item.roomName}}<text class="room-type">{{item.roomType === 'MOBILE' ? '流动工位房间' : '工作室'}}</text></view><text>{{item.stations.length}} 个</text></view>
-    <view class="room-meta">{{item.location || '位置未填写'}}<text wx:if="{{item.mentorName}}"> · 导师：{{item.mentorName}}</text></view>
-    <view class="station-grid"><view wx:for="{{item.stations}}" wx:for-item="station" wx:key="workstationId" class="station {{station.statusClass}}"><text class="no">{{station.workstationNo}}</text><text class="type">{{station.workstationType === 'MOBILE' ? '流动' : '固定'}}</text><text class="status">{{station.statusText}}</text><text wx:if="{{station.layoutRow || station.layoutCol}}" class="position">{{station.layoutRow || '-'}}行 / {{station.layoutCol || '-'}}列</text></view></view>
+
+  <view class="map-area" aria-role="img" aria-label="空间分布示意图，不表示实际地理位置">
+    <image class="map-image" src="/assets/studios/map.png" mode="aspectFit"/>
+    <view class="map-caption">空间示意</view>
+    <view wx:if="{{!loading && !error}}" class="map-summary"><text class="summary-number">{{summary.total}}</text><text>个工位</text><view class="summary-divider"></view><text class="summary-number brand">{{summary.available}}</text><text>空闲</text></view>
   </view>
-  <workspace-nav active="spaces"/>
+
+  <view class="room-sheet">
+    <view class="sheet-handle"></view>
+    <view class="sheet-heading"><text class="sheet-title">{{groups.length}} 个房间</text><text class="sheet-subtitle">{{activeFilterCount || search ? '筛选结果' : '工作室与流动工位'}}</text></view>
+    <view wx:if="{{loading}}" class="loading-state"><view class="loading-dot"></view><text>正在更新空间信息…</text></view>
+    <view wx:if="{{error}}" class="error-state"><text>{{error}}</text><button class="text-action" loading="{{loading}}" disabled="{{loading}}" bindtap="load">重新加载</button></view>
+    <view wx:if="{{!loading && !error && !groups.length}}" class="empty-state"><text class="empty-title">{{search || activeFilterCount ? '没有符合条件的空间' : '暂无房间信息'}}</text><text>{{search || activeFilterCount ? '试试其他关键词，或清除筛选条件' : '管理员配置房间和工位后，会显示在这里'}}</text><button wx:if="{{search || activeFilterCount}}" class="text-action" bindtap="resetAll">清除筛选</button></view>
+    <view class="room-list">
+      <view wx:for="{{groups}}" wx:key="roomId" class="room-row {{selectedRoom.roomId === item.roomId ? 'selected-row' : ''}}" data-id="{{item.roomId}}" bindtap="openRoom" aria-role="button" aria-label="{{item.roomName}}，查看工位">
+        <view class="room-leading"><image src="/assets/studios/pin.png" class="pin-icon"/></view>
+        <view class="room-copy"><text class="room-name">{{item.roomName}}</text><text class="room-description">{{item.location || item.roomTypeText}} · {{item.stationCount}} 个工位<text wx:if="{{item.roomStatusText}}"> · {{item.roomStatusText}}</text></text></view>
+        <text class="room-availability {{item.availableCount ? 'has-seats' : ''}}">{{item.availableCount}} 空闲</text>
+        <image src="/assets/studios/chevron.png" class="chevron {{selectedRoom.roomId === item.roomId ? 'chevron-open' : ''}}"/>
+      </view>
+    </view>
+
+    <view wx:if="{{selectedRoom}}" id="room-detail" class="room-detail">
+      <view class="detail-heading"><view><text class="detail-title">{{selectedRoom.roomName}}</text><text class="detail-type">{{selectedRoom.roomTypeText}}</text></view><button class="clear-button" bindtap="closeRoom" aria-label="收起房间详情"><image src="/assets/studios/close.png" class="small-icon"/></button></view>
+      <text wx:if="{{selectedRoom.mentorName}}" class="detail-mentor">工位导师：{{selectedRoom.mentorName}}</text>
+      <view class="seat-legend"><text><text class="legend-dot available-dot">●</text> 空闲</text><text><text class="legend-dot occupied-dot">●</text> 使用中</text><text><text class="legend-dot pending-dot">●</text> 待回收</text><text><text class="legend-dot disabled-dot">●</text> 停用</text></view>
+      <view wx:if="{{!selectedRoom.stations.length}}" class="empty-seats">该房间尚未配置工位</view>
+      <view class="seat-grid"><view wx:for="{{selectedRoom.stations}}" wx:for-item="station" wx:key="workstationId" class="seat {{station.statusClass}}" data-id="{{station.workstationId}}" bindtap="openStation" aria-role="button" aria-label="{{station.workstationNo}}，{{station.statusText}}"><text class="seat-number">{{station.workstationNo}}</text><text class="seat-type">{{station.workstationType === 'FIXED' ? '固定工位' : '流动工位'}}</text><text class="seat-status">{{station.statusText}}</text></view></view>
+    </view>
+    <button wx:if="{{isStudent}}" class="apply-button" type="primary" bindtap="openApplications">申请流动工位</button>
+  </view>
+  <workspace-nav active="spaces" appearance="figma"/>
+</view>
+
+<view wx:if="{{filtersOpen}}" class="filter-overlay">
+  <view class="filter-mask" bindtap="closeFilters" catchtouchmove="stopTouch"></view>
+  <view class="filter-sheet">
+    <view class="sheet-handle"></view>
+    <view class="filter-heading"><text>筛选空间</text><button class="clear-button" bindtap="closeFilters" aria-label="关闭筛选"><image src="/assets/studios/close.png" class="small-icon"/></button></view>
+    <scroll-view scroll-y class="filter-body"><view class="filter-content">
+      <text class="field-label">房间</text><picker range="{{roomOptions}}" range-key="label" value="{{draftRoomIndex}}" data-field="draftRoomIndex" bindchange="onFilter"><view class="picker-field"><text>{{roomOptions[draftRoomIndex].label}}</text><image src="/assets/studios/chevron.png" class="picker-chevron"/></view></picker>
+      <text class="field-label">工位类型</text><picker range="{{typeOptions}}" range-key="label" value="{{draftTypeIndex}}" data-field="draftTypeIndex" bindchange="onFilter"><view class="picker-field"><text>{{typeOptions[draftTypeIndex].label}}</text><image src="/assets/studios/chevron.png" class="picker-chevron"/></view></picker>
+      <text class="field-label">工位状态</text><picker range="{{statusOptions}}" range-key="label" value="{{draftStatusIndex}}" data-field="draftStatusIndex" bindchange="onFilter"><view class="picker-field"><text>{{statusOptions[draftStatusIndex].label}}</text><image src="/assets/studios/chevron.png" class="picker-chevron"/></view></picker>
+    </view></scroll-view>
+    <view class="filter-footer"><button class="reset-button" bindtap="resetDraftFilters">重置</button><button class="confirm-button" type="primary" bindtap="applyDraftFilters">查看结果</button></view>
+  </view>
 </view>

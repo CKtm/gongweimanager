@@ -1,16 +1,32 @@
-<view class="page">
-  <view class="page-intro"><text class="page-kicker">PERSONAL CENTER</text><text class="page-title">我的</text><text class="page-caption">个人信息与账号安全</text></view>
-  <view class="header">
-    <view class="avatar">{{avatar}}</view>
-    <view><text class="name">{{profile.nickName || userInfo.nickName || userInfo.userName}}</text><text class="role">{{roleText}}</text></view>
+<view class="profile-page">
+  <view class="profile-top-shell" style="padding-top:{{statusBarHeight}}px"><view class="profile-top-bar" style="height:{{navigationHeight}}px;padding-right:{{capsuleInset}}px"><text>个人中心</text><button class="settings-button" bindtap="openSettings" aria-label="前往账号设置"><image src="/assets/profile/settings.png" class="settings-icon"/></button></view></view>
+  <view class="profile-content">
+    <view class="profile-header">
+      <view class="avatar-button" bindtap="editAccount" aria-role="button" aria-label="编辑头像与资料"><image wx:if="{{avatarUrl}}" class="avatar-image" src="{{avatarUrl}}" mode="aspectFill" binderror="onAvatarError"/><text wx:else>{{avatar}}</text></view>
+      <view class="profile-heading"><text class="profile-name">{{displayName}}</text><text class="profile-role">{{roleText}}</text></view>
+      <button class="edit-button" bindtap="editAccount">编辑</button>
+    </view>
+
+    <view wx:if="{{error}}" class="profile-error"><text>{{error}}</text><button disabled="{{loading}}" bindtap="load">重试</button></view>
+    <view class="identity-card">
+      <view class="identity-heading"><text>个人档案</text><view class="profile-badge {{missing || loading || error ? 'pending-badge' : ''}}"><image wx:if="{{!missing && !loading && !error}}" src="/assets/profile/dot.png" class="status-dot"/><text>{{loading ? '更新中' : error ? '未更新' : missing ? '待完善' : '已完善'}}</text></view></view>
+      <view class="progress-heading"><text>基础资料维护进度</text><text class="progress-value">{{loading || error ? '--' : progress}}%</text></view>
+      <view class="progress-track"><view class="progress-fill" style="width:{{loading || error ? 0 : progress}}%"></view></view>
+      <text class="progress-caption">{{loading ? '正在读取个人档案…' : error ? '刷新后查看最新资料' : '已维护 ' + completed + ' / ' + totalFields + ' 项基础资料'}}</text>
+      <button class="profile-action" bindtap="editAccount">编辑个人资料与头像</button>
+    </view>
+
+    <view class="profile-stats"><view class="stat-card"><text class="stat-value">{{loading || error ? '--' : completed}}</text><text class="stat-label">已填项目</text></view><view class="stat-card"><text class="stat-value">{{loading || error ? '--' : missing}}</text><text class="stat-label">待补项目</text></view><view class="stat-card"><text class="stat-value">{{roleCount}}</text><text class="stat-label">当前角色</text></view></view>
+    <view wx:if="{{!loading && !error && isStudent && !profile.mentorId}}" class="binding-notice">尚未绑定导师，请联系管理员维护师生关系。绑定后才能提交流动工位申请。</view>
+
+    <view id="account-settings" class="settings-list">
+      <view class="settings-row" bindtap="openBusiness" aria-role="button" aria-label="进入我的业务"><view class="row-icon-holder"><image src="/assets/profile/business.png" class="row-icon"/></view><text>我的业务</text><image src="/assets/profile/chevron.png" class="chevron"/></view>
+      <view class="settings-row" bindtap="editAccount" aria-role="button" aria-label="编辑资料与头像"><view class="row-icon-holder"><image src="/assets/profile/account.png" class="row-icon"/></view><text>资料与头像</text><image src="/assets/profile/chevron.png" class="chevron"/></view>
+      <view class="settings-row" bindtap="openIdentity" aria-role="button" aria-label="查看身份与导师信息"><view class="row-icon-holder"><image src="/assets/profile/identity.png" class="row-icon"/></view><text>身份与导师信息</text><image src="/assets/profile/chevron.png" class="chevron"/></view>
+      <view class="settings-row" bindtap="changePassword" aria-role="button" aria-label="修改登录密码"><view class="row-icon-holder"><image src="/assets/profile/settings.png" class="row-icon"/></view><text>修改登录密码</text><image src="/assets/profile/chevron.png" class="chevron"/></view>
+    </view>
+    <text class="readonly-note">学号、工号与导师关系由管理员维护</text>
+    <button class="logout-button" loading="{{loggingOut}}" disabled="{{loggingOut || confirmingLogout}}" bindtap="logout">退出当前账号</button>
   </view>
-  <view class="card">
-    <view class="line"><text>登录账号</text><text>{{profile.userName || userInfo.userName || '-'}}</text></view>
-    <view class="line"><text>学号/工号</text><text>{{profile.identityNo || '暂未维护'}}</text></view>
-    <view class="line"><text>业务身份</text><text>{{roleText || '-'}}</text></view>
-    <view class="line" wx:if="{{profile.userType === 'STUDENT' || profile.userType === 'student'}}"><text>所属导师</text><text>{{profile.mentorName || '暂未绑定'}}</text></view>
-  </view>
-  <view wx:if="{{(profile.userType === 'STUDENT' || profile.userType === 'student') && !profile.mentorId}}" class="notice">尚未绑定导师，流动工位申请和退还流程暂不能提交，请联系学院管理员。</view>
-  <view class="section-row"><text class="section-label">账号设置</text><text class="section-meta">资料与安全</text></view><button class="password" bindtap="editAccount">编辑资料与头像 <text>›</text></button><button class="password" bindtap="changePassword">修改登录密码 <text>›</text></button><button class="signout" bindtap="logout">退出当前账号</button>
-  <workspace-nav active="profile"/>
+  <workspace-nav active="profile" appearance="figma"/>
 </view>

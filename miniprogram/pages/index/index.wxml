@@ -1,25 +1,50 @@
-<view class="page dashboard">
-  <view class="dashboard-top"><view><text class="eyebrow">CAMPUS WORKSPACE</text><text class="greeting">你好，{{userInfo.nickName || userInfo.userName || '同学'}}</text></view><view class="user-chip" bindtap="openProfile">{{roleText}}</view></view>
-  <view class="welcome-panel"><view class="welcome-copy"><text class="welcome-kicker">专注研究 · 有序协作</text><text class="welcome-title">让每一处空间
-发挥更多价值</text><text class="welcome-caption">工位与团队，一站管理。</text></view><view class="space-art"><view class="art-table"></view><view class="art-seat a"></view><view class="art-seat b"></view><view class="art-seat c"></view><view class="art-seat d"></view><view class="art-leaf"></view></view></view>
-  <view wx:if="{{isStudent}}" class="focus-card" bindtap="openMyWorkstation"><view class="focus-top"><text class="focus-label">我的专属工位</text><text class="focus-pill">{{workstation ? (workstation.workstationType === 'FIXED' ? '固定工位' : '流动工位') : '暂未分配'}}</text></view><text class="focus-title">{{workstation ? workstation.roomName + ' · ' + workstation.workstationNo : '开启你的研究空间'}}</text><view class="focus-bottom"><text>{{workstation ? '查看工位信息与使用情况' : '浏览空间，查看申请资格'}}</text><text>↗</text></view></view>
-  <view wx:if="{{isMentor}}" class="focus-card" data-tab="review" bindtap="openMentorReview"><view class="focus-top"><text class="focus-label">团队协作</text><text class="focus-pill">导师工作台</text></view><text class="focus-title">{{mentorApplicationCount + mentorReturnCount}} 项待审批</text><view class="focus-bottom"><text>流动申请 {{mentorApplicationCount}} · 退还确认 {{mentorReturnCount}}</text><text>↗</text></view></view>
-  <view wx:if="{{isInspector}}" class="focus-card" bindtap="openInspection"><view class="focus-top"><text class="focus-label">检查计划</text><text class="focus-pill">卫生检查员</text></view><text class="focus-title">{{inspectionTaskCount}} 项待执行</text><view class="focus-bottom"><text>进入座位图，选择对象并完成评分</text><text>↗</text></view></view>
-  <view wx:if="{{isAdmin}}" class="focus-card" data-tab="reviews" bindtap="openAdmin"><view class="focus-top"><text class="focus-label">移动管理</text><text class="focus-pill">管理员工作台</text></view><text class="focus-title">{{adminPending || 0}} 项待审批</text><view class="focus-bottom"><text>待分配 {{adminWaiting || 0}} · 待核实评分 {{adminInspection || 0}}</text><text>↗</text></view></view>
-  <view class="section-row"><text class="section-label">快捷服务</text><text class="section-meta">为你的角色定制</text></view>
-  <view class="service-grid">
-    <view class="service" bindtap="openWorkstations"><view class="service-icon icon-space">▦</view><text class="service-name">空间总览</text><text class="service-desc">房间与工位实时状态</text></view>
-    <view wx:if="{{isAdmin}}" class="service" data-tab="reviews" bindtap="openAdmin"><view class="service-icon">✓</view><text class="service-name">审批中心</text><text class="service-desc">流动申请、退还审批</text></view>
-    <view wx:if="{{isAdmin}}" class="service" data-tab="seats" bindtap="openAdmin"><view class="service-icon">▦</view><text class="service-name">座位管理</text><text class="service-desc">分配、调整与主动收回</text></view>
-    <view wx:if="{{isAdmin}}" class="service" data-tab="inspections" bindtap="openAdmin"><view class="service-icon warm">◎</view><text class="service-name">卫生检查管理</text><text class="service-desc">下发任务、核实与归档</text></view>
-    <view wx:if="{{isStudent}}" class="service" bindtap="openApplications"><view class="service-icon">↗</view><text class="service-name">流动工位申请 <text wx:if="{{applicationCount}}" class="badge">{{applicationCount}}</text></text><text class="service-desc">申请资格与审批进度</text></view>
-    <view wx:if="{{isStudent}}" class="service" bindtap="openReturns"><view class="service-icon warm">↩</view><text class="service-name">退还与回收</text><text class="service-desc">清理上传与进度跟踪</text></view>
-    <view wx:if="{{isMentor}}" class="service" bindtap="openQuota"><view class="service-icon">▤</view><text class="service-name">我的固定工位</text><text class="service-desc">管理员划分，导师分配</text></view>
-    <view wx:if="{{isMentor}}" class="service" bindtap="openMentorReview"><view class="service-icon warm">✓</view><text class="service-name">团队管理</text><text class="service-desc">学生、工位与审批</text></view>
-    <view wx:if="{{isInspector}}" class="service" bindtap="openInspection"><view class="service-icon">✓</view><text class="service-name">现场检查</text><text class="service-desc">座位评分与检查记录</text></view>
-    <view wx:if="{{isAdmin}}" class="service" data-tab="settings" bindtap="openAdmin"><view class="service-icon neutral">⚙</view><text class="service-name">系统与基础配置</text><text class="service-desc">账号、权限、档案、房间与日志</text></view>
-    <view class="service" bindtap="openProfile"><view class="service-icon neutral">◎</view><text class="service-name">个人中心</text><text class="service-desc">身份信息与账号安全</text></view>
+<view class="home-page">
+  <view class="greeting-row">
+    <view class="avatar-button" bindtap="openProfile" aria-role="button" aria-label="查看个人资料">
+      <image wx:if="{{avatarUrl}}" class="avatar-image" src="{{avatarUrl}}" mode="aspectFill" binderror="onAvatarError"/>
+      <text wx:else class="avatar-initial">{{avatarInitial}}</text>
+    </view>
+    <view class="greeting-copy"><text class="greeting-label">{{greeting}} · {{roleText}}</text><text class="greeting-name">{{userInfo.nickName || userInfo.userName || '同学'}}</text></view>
+    <button class="notification-button" bindtap="openNotifications" aria-label="查看当前待办事项"><image src="/assets/home/notification.png" class="notification-icon"/><text wx:if="{{!loading && pendingCount}}" class="notification-badge">{{pendingCount > 99 ? '99+' : pendingCount}}</text></button>
   </view>
-  <view class="dashboard-note"><view class="note-dot"></view><text>研究生工位管理 · 让协作更有序</text></view>
-  <workspace-nav active="home"/>
+
+  <view class="search-field"><image src="/assets/home/search.png" class="search-icon"/><input placeholder="搜索服务与业务入口" value="{{search}}" bindinput="onSearch" confirm-type="search" maxlength="80"/><button wx:if="{{search}}" class="clear-button" bindtap="clearSearch" aria-label="清空搜索"><image src="/assets/studios/close.png" class="close-icon"/></button></view>
+
+  <scroll-view class="category-scroll" scroll-x enhanced show-scrollbar="{{false}}"><view class="categories"><view wx:for="{{categories}}" wx:key="key" class="category-chip {{activeCategory === item.key ? 'selected-chip' : ''}}" data-key="{{item.key}}" bindtap="onCategory" aria-role="button" aria-label="{{item.label}}服务">{{item.label}}</view></view></scroll-view>
+
+  <view class="section-heading"><text>常用服务</text><button class="see-all" bindtap="openAllServices">查看全部<image src="/assets/home/arrow.png" class="arrow-icon"/></button></view>
+  <scroll-view wx:if="{{visibleServices.length}}" scroll-x enhanced show-scrollbar="{{false}}" class="service-scroll"><view class="service-track"><view wx:for="{{visibleServices}}" wx:key="key" class="service-card" data-key="{{item.key}}" bindtap="openService" aria-role="button" aria-label="{{item.title}}">
+    <view class="service-image"><image src="/assets/home/placeholder.png" class="placeholder-icon"/></view>
+    <view class="service-copy"><text class="service-title">{{item.title}}</text><text class="service-description">{{item.description}}</text></view>
+    <text class="service-tag">{{item.categoryLabel}}</text>
+  </view></view></scroll-view>
+  <view wx:else class="empty-services"><text>没有找到相关服务</text><button class="see-all" bindtap="resetServiceFilters">查看全部服务</button></view>
+
+  <view class="section-heading next-heading"><text>当前事项</text><text wx:if="{{loading}}" class="updating">更新中…</text></view>
+  <view wx:if="{{error}}" class="load-error"><text>{{error}}</text><button class="retry-button" disabled="{{loading}}" bindtap="refreshDashboard">重试</button></view>
+  <view wx:for="{{nextCards}}" wx:key="key" class="next-card">
+    <view class="next-leading"><image src="/assets/home/calendar.png" class="calendar-icon"/></view>
+    <view class="next-copy"><text class="next-title">{{item.title}}</text><text class="next-description">{{loading ? '正在更新信息…' : item.description}}</text></view>
+    <button class="view-button" data-key="{{item.key}}" bindtap="openNextCard">{{item.buttonText}}</button>
+  </view>
+  <workspace-nav active="home" appearance="figma"/>
+</view>
+
+<view wx:if="{{allServicesOpen || notificationsOpen}}" class="home-overlay">
+  <view class="home-mask" bindtap="closeSheet" catchtouchmove="stopTouch"></view>
+  <view class="home-sheet">
+    <view class="sheet-handle"></view>
+    <view class="sheet-heading"><text>{{notificationsOpen ? '当前待办' : '全部服务'}}</text><button class="clear-button" bindtap="closeSheet" aria-label="关闭"><image src="/assets/studios/close.png" class="close-icon"/></button></view>
+    <scroll-view scroll-y class="sheet-body"><view class="sheet-content">
+      <block wx:if="{{notificationsOpen}}">
+        <view wx:if="{{loading}}" class="sheet-empty">正在更新待办…</view>
+        <view wx:elif="{{!pendingItems.length}}" class="sheet-empty">{{error ? '待办信息暂未更新，请下拉刷新后重试' : '暂无待办事项'}}</view>
+        <view wx:for="{{pendingItems}}" wx:key="key" class="sheet-row" data-key="{{item.key}}" bindtap="openPendingItem"><view><text class="sheet-row-title">{{item.title}}</text><text class="sheet-row-description">{{item.description}}</text></view><image src="/assets/home/arrow.png" class="arrow-icon"/></view>
+      </block>
+      <block wx:else>
+        <view wx:if="{{!visibleServices.length}}" class="sheet-empty">当前筛选条件下暂无服务</view>
+        <view wx:for="{{visibleServices}}" wx:key="key" class="sheet-row" data-key="{{item.key}}" bindtap="openService"><view><text class="sheet-row-title">{{item.title}}</text><text class="sheet-row-description">{{item.description}}</text></view><image src="/assets/home/arrow.png" class="arrow-icon"/></view>
+      </block>
+    </view></scroll-view>
+  </view>
 </view>

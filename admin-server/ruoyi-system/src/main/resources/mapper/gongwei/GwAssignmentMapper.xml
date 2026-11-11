@@ -6,12 +6,14 @@
         <result property="studentName" column="student_name"/><result property="workstationId" column="workstation_id"/>
         <result property="roomId" column="room_id"/><result property="roomName" column="room_name"/>
         <result property="workstationNo" column="workstation_no"/><result property="workstationType" column="workstation_type"/>
+        <result property="workstationDeleted" column="workstation_deleted"/>
+        <result property="workstationStatus" column="workstation_status"/>
         <result property="applicationId" column="application_id"/><result property="termCode" column="term_code"/><result property="startedAt" column="started_at"/>
         <result property="endedAt" column="ended_at"/><result property="operatorId" column="operator_id"/>
     </resultMap>
     <sql id="selectAssignmentVo">
         select a.assignment_id,a.student_id,su.nick_name student_name,a.workstation_id,w.room_id,r.room_name,w.workstation_no,
-               w.workstation_type,a.application_id,a.term_code,a.started_at,a.ended_at,a.operator_id
+               w.workstation_type,w.status workstation_status,(w.deleted_at is not null) workstation_deleted,a.application_id,a.term_code,a.started_at,a.ended_at,a.operator_id
         from gw_assignment a join gw_workstation w on w.workstation_id=a.workstation_id
         left join gw_room r on r.room_id=w.room_id left join sys_user su on su.user_id=a.student_id
     </sql>

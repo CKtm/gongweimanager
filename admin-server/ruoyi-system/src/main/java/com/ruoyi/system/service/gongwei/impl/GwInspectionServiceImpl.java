@@ -54,7 +54,7 @@ public class GwInspectionServiceImpl implements IGwInspectionService {
             if (workstation == null || workstation.getStudentId() == null) throw new ServiceException("请选择学生当前使用的工位");
             record.setRoomId(workstation.getRoomId());
         } else {
-            GwRoom room = record.getRoomId() == null ? null : roomMapper.selectRoomById(record.getRoomId());
+            GwRoom room = record.getRoomId() == null ? null : roomMapper.selectRoomForUpdate(record.getRoomId());
             if (room == null || !"STUDIO".equals(room.getRoomType())) throw new ServiceException("请选择需要评分的工作室");
         }
         if (record.getIssueDescription() != null && !record.getIssueDescription().isBlank()

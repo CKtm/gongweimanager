@@ -12,6 +12,8 @@ public class GwAssignment {
     private String roomName;
     private String workstationNo;
     private String workstationType;
+    private String workstationStatus;
+    private Boolean workstationDeleted;
     private Long applicationId;
     private String termCode;
     private Date startedAt;
@@ -34,6 +36,10 @@ public class GwAssignment {
     public void setWorkstationNo(String workstationNo) { this.workstationNo = workstationNo; }
     public String getWorkstationType() { return workstationType; }
     public void setWorkstationType(String workstationType) { this.workstationType = workstationType; }
+    public Boolean getWorkstationDeleted() { return workstationDeleted; }
+    public void setWorkstationDeleted(Boolean workstationDeleted) { this.workstationDeleted = workstationDeleted; }
+    public String getWorkstationStatus() { return workstationStatus; }
+    public void setWorkstationStatus(String workstationStatus) { this.workstationStatus = workstationStatus; }
     public Long getApplicationId() { return applicationId; }
     public void setApplicationId(Long applicationId) { this.applicationId = applicationId; }
     public String getTermCode() { return termCode; }

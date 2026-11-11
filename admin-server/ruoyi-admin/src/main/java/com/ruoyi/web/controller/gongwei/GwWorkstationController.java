@@ -76,6 +76,23 @@ public class GwWorkstationController extends BaseController {
         return toAjax(workstationService.updateWorkstation(workstation));
     }
 
+    public static class BatchCreateBody {
+        public Long roomId;
+        public java.math.BigDecimal count;
+    }
+
+    @PreAuthorize("@ss.hasPermi('gw:workstation:add')")
+    @Log(title = "按数量新增工位", businessType = BusinessType.INSERT)
+    @PostMapping("/batch")
+    public AjaxResult createBatch(@RequestBody BatchCreateBody body) {
+        if (!SecurityUtils.isGongweiAdmin()) throw new com.ruoyi.common.exception.ServiceException("仅管理员可以新增工位");
+        if (body == null || body.count == null) throw new com.ruoyi.common.exception.ServiceException("请填写新增数量");
+        int count;
+        try { count = body.count.intValueExact(); }
+        catch (ArithmeticException ex) { throw new com.ruoyi.common.exception.ServiceException("新增数量必须是1至200的整数"); }
+        return success(workstationService.createWorkstations(body.roomId, count, getUsername()));
+    }
+
     public static class MentorAllocation {
         public List<Long> workstationIds;
         public Long mentorId;
@@ -91,8 +108,23 @@ public class GwWorkstationController extends BaseController {
 
     @PreAuthorize("@ss.hasPermi('gw:workstation:remove')")
     @Log(title = "工位管理", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{workstationId}")
-    public AjaxResult remove(@PathVariable Long workstationId) {
-        return toAjax(workstationService.deleteWorkstationById(workstationId));
+    @DeleteMapping("/{workstationIds}")
+    public AjaxResult remove(@PathVariable Long[] workstationIds) {
+        if (!SecurityUtils.isGongweiAdmin()) throw new com.ruoyi.common.exception.ServiceException("仅管理员可以删除工位");
+        return toAjax(workstationService.deleteWorkstations(java.util.Arrays.asList(workstationIds)));
+    }
+
+    public static class StatusBatch {
+        public List<Long> workstationIds;
+        public String status;
+    }
+
+    @PreAuthorize("@ss.hasPermi('gw:workstation:edit')")
+    @Log(title = "批量停用恢复工位", businessType = BusinessType.UPDATE)
+    @PutMapping("/status")
+    public AjaxResult changeStatus(@RequestBody StatusBatch body) {
+        if (!SecurityUtils.isGongweiAdmin()) throw new com.ruoyi.common.exception.ServiceException("仅管理员可以维护工位状态");
+        if (body == null) throw new com.ruoyi.common.exception.ServiceException("请选择工位");
+        return toAjax(workstationService.changeWorkstationStatus(body.workstationIds, body.status, getUsername()));
     }
 }

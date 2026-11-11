@@ -24,7 +24,7 @@ public class GwWorkstation extends BaseEntity {
     private Integer layoutRow;
     @Excel(name = "布局列", prompt = "正整数")
     private Integer layoutCol;
-    @Excel(name = "初始状态", prompt = "AVAILABLE=空闲，DISABLED=停用")
+    @Excel(name = "初始状态", prompt = "初始状态仅支持 AVAILABLE=空闲")
     private String status;
     private Long studentId;
     private String studentName;

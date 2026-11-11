@@ -35,7 +35,7 @@ Page({
       const ownedStations = (stationRes.data || []).filter(item => Number(item.mentorId) === Number(userInfo.userId))
       const ownedRooms = (roomRes.data || []).filter(room => ownedStations.some(s => Number(s.roomId) === Number(room.roomId))).map(room => {
         const seats = ownedStations.filter(s => Number(s.roomId) === Number(room.roomId))
-        return {...room, workstationCount: seats.length, availableCount: seats.filter(s => s.status === 'AVAILABLE' && s.roomStatus === 'NORMAL').length, inUseCount: seats.filter(s => ['IN_USE','PENDING_RETURN'].includes(s.status)).length}
+        return {...room, workstationCount: seats.length, availableCount: seats.filter(s => s.status === 'AVAILABLE' && s.roomStatus === 'NORMAL').length, inUseCount: seats.filter(s => ['IN_USE','DISABLED','PENDING_RETURN'].includes(s.status)).length}
       })
       const fixedStations = ownedStations.filter(item => item.status === 'AVAILABLE' && item.roomStatus === 'NORMAL' && Number(item.mentorId) === Number(userInfo.userId)).map(item => Object.assign({}, item, { label: item.roomName + ' · ' + item.workstationNo }))
       const availableFixedCount = fixedStations.length

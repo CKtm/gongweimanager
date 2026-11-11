@@ -46,8 +46,9 @@ public class GwRoomServiceImpl implements IGwRoomService {
     public int deleteRoomById(Long roomId) {
         GwRoom room = roomMapper.selectRoomForUpdate(roomId);
         if (room == null) throw new ServiceException("房间不存在");
-        if (room.getMentorId() != null) throw new ServiceException("工作室仍绑定导师，请先解除归属");
-        if (roomMapper.countRoomReferences(roomId) > 0) throw new ServiceException("房间存在工位、申请历史或卫生检查任务，请改为停用");
+        if (roomMapper.countWorkstations(roomId) > 0) throw new ServiceException("房间仍有现有工位，请先删除空闲工位后再删除房间");
+        if (roomMapper.countActiveAssignments(roomId) > 0) throw new ServiceException("房间仍有学生占用记录，不能删除");
+        if (roomMapper.countPendingRoomBusinesses(roomId) > 0) throw new ServiceException("房间存在未完成申请、退还流程或未归档卫生检查，请先处理完毕");
         return roomMapper.deleteRoomById(roomId);
     }
 

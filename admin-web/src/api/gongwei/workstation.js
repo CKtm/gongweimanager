@@ -12,8 +12,20 @@ export function addWorkstation(data) {
   return request({ url: '/gw/workstation', method: 'post', data })
 }
 
+export function createWorkstations(data) {
+  return request({ url: '/gw/workstation/batch', method: 'post', data })
+}
+
 export function updateWorkstation(data) {
   return request({ url: '/gw/workstation', method: 'put', data })
+}
+
+export function assignWorkstationMentor(data) {
+  return request({ url: '/gw/workstation/mentor', method: 'put', data })
+}
+
+export function changeWorkstationStatus(data) {
+  return request({ url: '/gw/workstation/status', method: 'put', data })
 }
 
 export function delWorkstation(workstationId) {

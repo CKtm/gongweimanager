@@ -29,6 +29,7 @@
     <select id="selectWorkstationList" parameterType="GwWorkstation" resultMap="GwWorkstationResult">
         <include refid="selectWorkstationVo"/>
         <where>
+            w.deleted_at is null and r.deleted_at is null
             <if test="roomId != null">and w.room_id = #{roomId}</if>
             <if test="workstationType != null and workstationType != ''">and w.workstation_type = #{workstationType}</if>
             <if test="roomType != null and roomType != ''">and r.room_type = #{roomType}</if>
@@ -40,10 +41,10 @@
         order by w.room_id, w.layout_row, w.layout_col, w.workstation_id
     </select>
     <select id="selectWorkstationById" parameterType="long" resultMap="GwWorkstationResult">
-        <include refid="selectWorkstationVo"/> where w.workstation_id = #{workstationId}
+        <include refid="selectWorkstationVo"/> where w.workstation_id = #{workstationId} and w.deleted_at is null and r.deleted_at is null
     </select>
     <select id="selectWorkstationForUpdate" parameterType="long" resultMap="GwWorkstationResult">
-        <include refid="selectWorkstationVo"/> where w.workstation_id = #{workstationId} for update
+        <include refid="selectWorkstationVo"/> where w.workstation_id = #{workstationId} and w.deleted_at is null and r.deleted_at is null for update
     </select>
     <insert id="insertWorkstation" parameterType="GwWorkstation" useGeneratedKeys="true" keyProperty="workstationId">
         insert into gw_workstation(room_id, mentor_id, workstation_no, workstation_type, layout_row, layout_col, status, create_by, create_time)
@@ -54,29 +55,34 @@
         set room_id = #{roomId}, mentor_id = #{mentorId}, workstation_no = #{workstationNo}, workstation_type = #{workstationType},
             layout_row = #{layoutRow}, layout_col = #{layoutCol}, status = #{status},
             update_by = #{updateBy}, update_time = now()
-        where workstation_id = #{workstationId}
+        where workstation_id = #{workstationId} and deleted_at is null
     </update>
-    <delete id="deleteWorkstationById" parameterType="long">
-        delete from gw_workstation where workstation_id = #{workstationId} and status = 'AVAILABLE'
-    </delete>
+    <update id="deleteWorkstationById" parameterType="long">
+        update gw_workstation set deleted_at=now(), update_time=now()
+        where workstation_id=#{workstationId} and status='AVAILABLE' and deleted_at is null
+    </update>
+    <select id="countPendingWorkstationFlows" resultType="int">
+        select (select count(1) from gw_return_application where workstation_id=#{workstationId} and status in ('PENDING_MENTOR','PENDING_ADMIN','WAIT_CLEAR','WAIT_VERIFY'))
+             + (select count(1) from gw_mobile_application where workstation_id=#{workstationId} and status in ('PENDING_MENTOR','PENDING_ADMIN','WAIT_ALLOC'))
+    </select>
     <select id="countWorkstationReferences" resultType="int">
         select (select count(1) from gw_assignment where workstation_id=#{workstationId})
              + (select count(1) from gw_return_application where workstation_id=#{workstationId} and status in ('PENDING_MENTOR','PENDING_ADMIN','WAIT_CLEAR','WAIT_VERIFY'))
              + (select count(1) from gw_inspection_record where workstation_id=#{workstationId})
     </select>
-    <select id="countByRoomAndNo" resultType="int">select count(1) from gw_workstation where room_id=#{roomId} and workstation_no=#{workstationNo}</select>
+    <select id="countByRoomAndNo" resultType="int">select count(1) from gw_workstation where room_id=#{roomId} and workstation_no=#{workstationNo} and deleted_at is null</select>
     <update id="updateStatus">
-        update gw_workstation set status = #{status}, update_time = now() where workstation_id = #{workstationId}
+        update gw_workstation set status = #{status}, update_time = now() where workstation_id = #{workstationId} and deleted_at is null
     </update>
     <select id="countAvailableFixedByMentor" parameterType="long" resultType="int">
         select count(1) from gw_workstation w join gw_room r on r.room_id=w.room_id
-        where w.mentor_id=#{mentorId} and r.room_type='STUDIO' and r.status='NORMAL'
+        where r.deleted_at is null and w.deleted_at is null and w.mentor_id=#{mentorId} and r.room_type='STUDIO' and r.status='NORMAL'
           and w.workstation_type='FIXED' and w.status='AVAILABLE'
     </select>
     <select id="selectRoomWorkstationsForUpdate" resultMap="GwWorkstationResult">
-        <include refid="selectWorkstationVo"/> where w.room_id=#{roomId} order by w.workstation_id for update
+        <include refid="selectWorkstationVo"/> where w.room_id=#{roomId} and w.deleted_at is null and r.deleted_at is null order by w.workstation_id for update
     </select>
     <update id="updateMentor">
-        update gw_workstation set mentor_id=#{mentorId},update_by=#{operator},update_time=now() where workstation_id=#{workstationId}
+        update gw_workstation set mentor_id=#{mentorId},update_by=#{operator},update_time=now() where workstation_id=#{workstationId} and deleted_at is null
     </update>
 </mapper>

@@ -1,6 +1,9 @@
 package com.ruoyi.system.service.gongwei.impl;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.math.BigInteger;
+import org.springframework.dao.DataIntegrityViolationException;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -32,19 +35,23 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
         return workstationMapper.selectWorkstationById(workstationId);
     }
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int insertWorkstation(GwWorkstation workstation) {
+        lockRoom(workstation == null ? null : workstation.getRoomId());
         applyRoomType(workstation, false);
         validate(workstation);
-        if (!"AVAILABLE".equals(workstation.getStatus()) && !"DISABLED".equals(workstation.getStatus())) throw new ServiceException("新工位只能设为空闲或停用");
+        if (!"AVAILABLE".equals(workstation.getStatus())) throw new ServiceException("新工位只能设为空闲；停用仅针对已分配学生的工位");
         return workstationMapper.insertWorkstation(workstation);
     }
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int updateWorkstation(GwWorkstation workstation) {
+        lockRoom(workstation == null ? null : workstation.getRoomId());
         applyRoomType(workstation, false);
         validate(workstation);
         GwWorkstation current = workstationMapper.selectWorkstationForUpdate(workstation.getWorkstationId());
         if (current == null) throw new ServiceException("工位不存在");
+        if (!java.util.Objects.equals(current.getStatus(), workstation.getStatus())) throw new ServiceException("不能通过编辑修改工位状态，请使用停用、恢复或收回操作");
         if (!current.getRoomId().equals(workstation.getRoomId()) && workstationMapper.countWorkstationReferences(workstation.getWorkstationId()) > 0) {
             throw new ServiceException("工位已有业务历史，不能迁移到其他房间；请在目标房间新建工位");
         }
@@ -68,7 +75,7 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
         GwWorkstation current = workstationMapper.selectWorkstationForUpdate(workstationId);
         if (current == null) throw new ServiceException("工位不存在");
         if (!"AVAILABLE".equals(current.getStatus()) || current.getStudentId() != null) throw new ServiceException("只有无占用的空闲工位可以删除");
-        if (workstationMapper.countWorkstationReferences(workstationId) > 0) throw new ServiceException("工位存在分配历史、未结流程或检查记录，请改为停用");
+        if (workstationMapper.countPendingWorkstationFlows(workstationId) > 0) throw new ServiceException("工位存在未完成申请或退还流程，不能删除");
         return workstationMapper.deleteWorkstationById(workstationId);
     }
 
@@ -76,6 +83,8 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
     @Transactional(rollbackFor = Exception.class)
     public String importWorkstations(List<GwWorkstation> workstations, String operator) {
         if (workstations == null || workstations.isEmpty()) throw new ServiceException("导入数据不能为空");
+        // Use the same parent lock as automatic creation, in a stable order for multi-room imports.
+        for (Long roomId : workstations.stream().filter(java.util.Objects::nonNull).map(GwWorkstation::getRoomId).filter(java.util.Objects::nonNull).distinct().sorted().toList()) lockRoom(roomId);
         Set<String> fileKeys = new HashSet<>();
         int rowNo = 1;
         for (GwWorkstation workstation : workstations) {
@@ -86,7 +95,7 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
             workstation.setStatus(workstation.getStatus() == null || workstation.getStatus().isBlank() ? "AVAILABLE" : workstation.getStatus().trim().toUpperCase(Locale.ROOT));
             applyRoomType(workstation, true);
             validate(workstation);
-            if (!"AVAILABLE".equals(workstation.getStatus()) && !"DISABLED".equals(workstation.getStatus())) throw new ServiceException("第" + rowNo + "行初始状态只能是 AVAILABLE 或 DISABLED");
+            if (!"AVAILABLE".equals(workstation.getStatus())) throw new ServiceException("第" + rowNo + "行初始状态只能是 AVAILABLE；停用仅针对已分配学生的工位");
             String key = workstation.getRoomId() + "#" + workstation.getWorkstationNo().toLowerCase(Locale.ROOT);
             if (!fileKeys.add(key)) throw new ServiceException("第" + rowNo + "行与导入文件内其他工位编号重复");
             if (workstationMapper.countByRoomAndNo(workstation.getRoomId(), workstation.getWorkstationNo()) > 0) throw new ServiceException("第" + rowNo + "行工位编号在该房间已存在");
@@ -109,6 +118,104 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
             workstationMapper.updateMentor(id, mentorId, operator);
         }
         return ids.size();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int createWorkstations(Long roomId, Integer count, String operator) {
+        if (count == null || count < 1 || count > 200) throw new ServiceException("新增数量必须是1至200的整数");
+        GwRoom room = lockRoom(roomId);
+        if (!"STUDIO".equals(room.getRoomType()) && !"MOBILE".equals(room.getRoomType())) throw new ServiceException("房间类型不合法");
+        List<GwWorkstation> existing = workstationMapper.selectRoomWorkstationsForUpdate(roomId);
+        BigInteger largest = BigInteger.ZERO;
+        int columns = 3;
+        for (GwWorkstation seat : existing) {
+            String number = seat.getWorkstationNo() == null ? "" : seat.getWorkstationNo().trim();
+            if (number.matches("[0-9]+")) largest = largest.max(new BigInteger(number));
+            if (seat.getLayoutCol() != null && seat.getLayoutCol() > columns) columns = seat.getLayoutCol();
+        }
+        long position = existing.size();
+        for (GwWorkstation seat : existing) {
+            if (seat.getLayoutRow() != null && seat.getLayoutRow() > 0 && seat.getLayoutCol() != null && seat.getLayoutCol() > 0) {
+                position = Math.max(position, ((long) seat.getLayoutRow() - 1) * columns + seat.getLayoutCol());
+            }
+        }
+        BigInteger nextNumber = largest.add(BigInteger.ONE);
+        List<GwWorkstation> planned = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            while (true) {
+                if (nextNumber.toString().length() > 50) throw new ServiceException("自动编号超过长度限制，请先检查已有工位编号");
+                if (workstationMapper.countByRoomAndNo(roomId, nextNumber.toString()) == 0) break;
+                nextNumber = nextNumber.add(BigInteger.ONE);
+            }
+            long row = position / columns + 1;
+            if (row > Integer.MAX_VALUE) throw new ServiceException("自动布局超出范围，请先检查房间已有布局");
+            GwWorkstation seat = new GwWorkstation();
+            seat.setRoomId(roomId);
+            seat.setWorkstationNo(nextNumber.toString());
+            seat.setWorkstationType("STUDIO".equals(room.getRoomType()) ? "FIXED" : "MOBILE");
+            seat.setMentorId(null);
+            seat.setStatus("AVAILABLE");
+            seat.setLayoutRow((int) row);
+            seat.setLayoutCol((int) (position % columns) + 1);
+            seat.setCreateBy(operator);
+            planned.add(seat);
+            nextNumber = nextNumber.add(BigInteger.ONE);
+            position++;
+        }
+        try {
+            for (GwWorkstation seat : planned) {
+                if (workstationMapper.insertWorkstation(seat) != 1) throw new ServiceException("创建工位失败，本次新增已撤销");
+            }
+        } catch (DataIntegrityViolationException ex) {
+            throw new ServiceException("工位编号发生冲突，本次新增已撤销，请刷新后重试");
+        }
+        return planned.size();
+    }
+
+    private List<Long> batchIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty() || ids.size() > 200 || ids.stream().anyMatch(java.util.Objects::isNull)) throw new ServiceException("请选择1至200个工位");
+        return ids.stream().distinct().sorted().toList();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int deleteWorkstations(List<Long> workstationIds) {
+        List<Long> ids = batchIds(workstationIds);
+        for (Long id : ids) {
+            if (deleteWorkstationById(id) != 1) throw new ServiceException("删除工位失败，本次操作已撤销");
+        }
+        return ids.size();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int changeWorkstationStatus(List<Long> workstationIds, String status, String operator) {
+        if (!"IN_USE".equals(status) && !"DISABLED".equals(status)) throw new ServiceException("仅支持使用中工位停用、停用工位恢复使用");
+        List<Long> ids = batchIds(workstationIds);
+        List<GwWorkstation> seats = new ArrayList<>();
+        for (Long id : ids) {
+            GwWorkstation seat = workstationMapper.selectWorkstationForUpdate(id);
+            if (seat == null) throw new ServiceException("工位 ID " + id + " 不存在，本次操作已撤销");
+            String label = seat.getRoomName() + " / " + seat.getWorkstationNo();
+            String expected = "DISABLED".equals(status) ? "IN_USE" : "DISABLED";
+            if (seat.getStudentId() == null || !expected.equals(seat.getStatus())) throw new ServiceException("工位 " + label + ("DISABLED".equals(status) ? " 必须为已绑定学生的使用中工位才能停用" : " 必须为已绑定学生的停用工位才能恢复") + "，本次操作已撤销");
+            if ("IN_USE".equals(status) && !"NORMAL".equals(seat.getRoomStatus())) throw new ServiceException("工位 " + label + " 所在房间不可用，不能恢复，本次操作已撤销");
+            seats.add(seat);
+        }
+        for (GwWorkstation seat : seats) {
+            seat.setStatus(status);
+            seat.setUpdateBy(operator);
+            if (workstationMapper.updateWorkstation(seat) != 1) throw new ServiceException("更新工位失败，本次操作已撤销");
+        }
+        return seats.size();
+    }
+
+    private GwRoom lockRoom(Long roomId) {
+        if (roomId == null) throw new ServiceException("请选择房间");
+        GwRoom room = roomMapper.selectRoomForUpdate(roomId);
+        if (room == null || !"NORMAL".equals(room.getStatus())) throw new ServiceException("房间不存在、已停用或正在维修");
+        return room;
     }
 
     private void validateMentor(Long mentorId) {

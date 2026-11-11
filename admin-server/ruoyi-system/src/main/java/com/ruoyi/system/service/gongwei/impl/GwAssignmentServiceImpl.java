@@ -61,6 +61,7 @@ public class GwAssignmentServiceImpl implements IGwAssignmentService {
         if (assignmentId == null || targetWorkstationId == null || reason == null || reason.isBlank()) throw new ServiceException("原占用记录、目标工位和调整原因不能为空");
         GwAssignment current = assignmentMapper.selectByIdForUpdate(assignmentId);
         if (current == null || current.getEndedAt() != null) throw new ServiceException("原工位占用记录不存在或已经结束");
+        if ("DISABLED".equals(current.getWorkstationStatus())) throw new ServiceException("工位已停用，请先由管理员恢复使用后再调整");
         if (current.getWorkstationId().equals(targetWorkstationId)) throw new ServiceException("目标工位不能与原工位相同");
         if (returnMapper.countPendingByAssignment(assignmentId) > 0) throw new ServiceException("该工位存在未完成退还/回收流程，不能调整");
         GwWorkstation target = workstationMapper.selectWorkstationForUpdate(targetWorkstationId);
@@ -90,8 +91,8 @@ public class GwAssignmentServiceImpl implements IGwAssignmentService {
         if (current == null || current.getEndedAt() != null) throw new ServiceException("工位占用记录不存在或已经结束");
         if (returnMapper.countPendingByAssignment(assignmentId) > 0) throw new ServiceException("该工位已有未完成退还/回收流程");
         GwWorkstation currentWorkstation = workstationMapper.selectWorkstationForUpdate(current.getWorkstationId());
-        if (currentWorkstation == null || !"IN_USE".equals(currentWorkstation.getStatus())) {
-            throw new ServiceException("工位当前不是使用中状态，不能主动收回");
+        if (currentWorkstation == null || !java.util.Set.of("IN_USE", "DISABLED").contains(currentWorkstation.getStatus())) {
+            throw new ServiceException("工位当前不是使用中或停用状态，不能主动收回");
         }
         if (!admin) {
             Long mentorId = profileMapper.selectMentorId(current.getStudentId());

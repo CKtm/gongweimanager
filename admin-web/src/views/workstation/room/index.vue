@@ -47,7 +47,7 @@ function getList(){loading.value=true;listRoom(queryParams).then(res=>roomList.v
 function resetQuery(){Object.assign(queryParams,{roomName:undefined,roomType:undefined,status:undefined});getList()}
 function handleAdd(){form.value={roomType:'STUDIO',status:'NORMAL'};title.value='新增房间';open.value=true}
 function handleEdit(row){form.value={...row};title.value='修改房间';open.value=true}
-function handleDelete(row){proxy.$modal.confirm(`只有无工位、无申请历史且未绑定导师的房间才能删除。是否删除“${row.roomName}”？`).then(()=>delRoom(row.roomId)).then(()=>{proxy.$modal.msgSuccess('删除成功');getList()}).catch(()=>{})}
+function handleDelete(row){proxy.$modal.confirm(`仅无现有工位、无未完成业务的房间可删除。删除后退出展示，历史记录保留。是否删除“${row.roomName}”？`).then(()=>delRoom(row.roomId)).then(()=>{proxy.$modal.msgSuccess('删除成功');getList()}).catch(()=>{})}
 function manageStations(row){router.push({path:'/workstation/workstation',query:{roomId:row.roomId}})}
 function submitForm(){proxy.$refs.formRef.validate(valid=>{if(!valid)return;(form.value.roomId?updateRoom:addRoom)(form.value).then(()=>{proxy.$modal.msgSuccess('保存成功');open.value=false;getList()})})}
 getList()

@@ -15,7 +15,9 @@ create table if not exists gw_room (
   update_by varchar(64) default '' comment '更新人',
   update_time datetime default null,
   primary key (room_id),
-  unique key uk_gw_room_name (room_name),
+  deleted_at datetime null default null comment '房间逻辑删除时间',
+  active_room_name varchar(100) generated always as (case when deleted_at is null then room_name else null end) stored,
+  unique key uk_gw_room_name (active_room_name),
   key idx_gw_room_type (room_type),
   key idx_gw_room_mentor (mentor_id)
 ) engine=innodb default charset=utf8mb4 comment='工位房间';
@@ -63,7 +65,9 @@ create table if not exists gw_workstation (
   update_by varchar(64) default '' comment '更新人',
   update_time datetime default null,
   primary key (workstation_id),
-  unique key uk_gw_workstation_no (room_id, workstation_no),
+  deleted_at datetime null default null comment '逻辑删除时间，历史工位永久保留',
+  active_workstation_no varchar(50) generated always as (case when deleted_at is null then workstation_no else null end) stored,
+  unique key uk_gw_workstation_no (room_id, active_workstation_no),
   key idx_gw_workstation_room (room_id),
   key idx_gw_workstation_mentor (mentor_id),
   constraint fk_gw_workstation_room foreign key (room_id) references gw_room(room_id)

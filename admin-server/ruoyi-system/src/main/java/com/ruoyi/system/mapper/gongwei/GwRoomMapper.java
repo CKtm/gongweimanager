@@ -14,6 +14,7 @@ public interface GwRoomMapper {
     int updateRoom(GwRoom room);
     int deleteRoomById(Long roomId);
     int countRoomReferences(Long roomId);
+    int countPendingRoomBusinesses(Long roomId);
     int countWorkstations(Long roomId);
     int countActiveAssignments(Long roomId);
     int countPendingStudioApplications(Long roomId);

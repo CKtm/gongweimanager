@@ -13,7 +13,7 @@
     </resultMap>
     <sql id="selectApplicationVo">
         select a.studio_application_id,a.mentor_id,mu.nick_name mentor_name,a.room_id,r.room_name,r.location,
-               (select count(1) from gw_workstation w where w.room_id=a.room_id) workstation_count,
+               (select count(1) from gw_workstation w where w.room_id=a.room_id and w.deleted_at is null) workstation_count,
                a.reason,a.status,a.admin_comment,a.reviewer_id,ru.nick_name reviewer_name,a.reviewed_time,a.create_time
         from gw_studio_application a
         left join sys_user mu on mu.user_id=a.mentor_id

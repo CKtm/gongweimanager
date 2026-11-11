@@ -1,7 +1,7 @@
-<view class="page">
+<view class="page"><view wx:if="{{assignment.workstationStatus === 'DISABLED'}}" class="notice">工位已停用，仍保留占用。请联系管理员恢复使用，或联系导师处理收回。</view>
   <view class="page-intro"><text class="page-kicker">RETURN & RECOVERY</text><text class="page-title">退还与回收</text><text class="page-caption">清理空间，上传照片，跟踪审核进度</text></view>
   <view wx:if="{{assignment && assignment.workstationType === 'FIXED'}}" class="notice">工作室固定工位由导师管理，学生不能主动申请退还。如需释放工位，请联系导师处理。</view>
-  <view class="form" wx:if="{{assignment && assignment.workstationType === 'MOBILE' && !hasPendingReturn}}">
+  <view class="form" wx:if="{{assignment && assignment.workstationType === 'MOBILE' && !hasPendingReturn && assignment.workstationStatus !== 'DISABLED'}}">
     <view class="section-title">退还流动工位：{{assignment.roomName}} · {{assignment.workstationNo}}</view>
     <view class="hint">请先清空个人物品，再上传1～3张清理后的现场照片。</view>
     <textarea placeholder="请填写退还原因" value="{{reason}}" bindinput="onInput"/>

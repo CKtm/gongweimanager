@@ -14,7 +14,7 @@
 
   <view class="section-heading"><text>常用服务</text><button class="see-all" bindtap="openAllServices">查看全部<image src="/assets/home/arrow.png" class="arrow-icon"/></button></view>
   <scroll-view wx:if="{{visibleServices.length}}" scroll-x enhanced show-scrollbar="{{false}}" class="service-scroll"><view class="service-track"><view wx:for="{{visibleServices}}" wx:key="key" class="service-card" data-key="{{item.key}}" bindtap="openService" aria-role="button" aria-label="{{item.title}}">
-    <view class="service-image"><image src="/assets/home/placeholder.png" class="placeholder-icon"/></view>
+    <view class="service-image"><image src="{{item.cover}}" class="service-cover" mode="aspectFill" lazy-load="{{true}}"/></view>
     <view class="service-copy"><text class="service-title">{{item.title}}</text><text class="service-description">{{item.description}}</text></view>
     <text class="service-tag">{{item.categoryLabel}}</text>
   </view></view></scroll-view>

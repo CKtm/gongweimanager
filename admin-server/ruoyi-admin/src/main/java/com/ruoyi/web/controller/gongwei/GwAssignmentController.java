@@ -21,8 +21,8 @@ public class GwAssignmentController extends BaseController {
 
     @PreAuthorize("@ss.hasPermi('gw:assignment:list')")
     @GetMapping("/list")
-    public AjaxResult list(Boolean activeOnly) {
-        Long studentId = SecurityUtils.isGongweiAdmin() ? null : (SecurityUtils.hasRole("mentor") ? null : getUserId());
+    public AjaxResult list(Boolean activeOnly, Long studentId) {
+        if (!SecurityUtils.isGongweiAdmin() && !SecurityUtils.hasRole("mentor")) studentId = getUserId();
         Long mentorId = SecurityUtils.hasRole("mentor") && !SecurityUtils.isGongweiAdmin() ? getUserId() : null;
         return success(assignmentService.selectAssignmentList(studentId, mentorId, activeOnly));
     }
@@ -53,6 +53,19 @@ public class GwAssignmentController extends BaseController {
     public AjaxResult recall(@RequestBody RecallBody body) {
         assignmentService.initiateRecall(body.assignmentId, body.reason, getUserId(), SecurityUtils.isGongweiAdmin());
         return success();
+    }
+
+    @PreAuthorize("@ss.hasPermi('gw:assignment:assign')")
+    @Log(title = "批量分配固定工位", businessType = BusinessType.INSERT)
+    @PostMapping("/fixed/batch")
+    public AjaxResult batchFixed(@RequestBody BatchAssignBody body) {
+        if (body == null) throw new com.ruoyi.common.exception.ServiceException("请选择学生与工位");
+        return success(assignmentService.batchAssignFixed(body.allocations, getUserId(), body.termCode, SecurityUtils.isGongweiAdmin()));
+    }
+
+    public static class BatchAssignBody {
+        public java.util.List<com.ruoyi.system.domain.gongwei.GwFixedAllocation> allocations;
+        public String termCode;
     }
 
     public static class AssignBody { public Long studentId; public Long workstationId; public String termCode; }

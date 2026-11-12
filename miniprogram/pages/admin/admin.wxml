@@ -1,5 +1,6 @@
 <view wx:if="{{authorized}}" class="page">
-  <view class="page-intro"><text class="page-kicker">ADMIN WORKSPACE</text><text class="page-title">移动管理工作台</text><text class="page-caption">日常审批、空间配置与系统管理，一站处理</text></view>
+  <message-entry/><view class="actions"><button size="mini" data-tab="appeals" bindtap="openRecords">学生申诉 · 待终审 {{appealCount}}</button><button size="mini" data-tab="penalties" bindtap="openRecords">处罚记录</button></view>
+<view class="page-intro"><text class="page-kicker">ADMIN WORKSPACE</text><text class="page-title">移动管理工作台</text><text class="page-caption">日常审批、空间配置与系统管理，一站处理</text></view>
   <view class="stats"><view><text class="stat-value">{{reviewCount}}</text><text>待审批</text></view><view><text class="stat-value">{{waitingCount}}</text><text>待分配</text></view><view><text class="stat-value">{{inspectionCount}}</text><text>待核实评分</text></view></view>
   <view class="segmented"><view class="segment {{tab==='reviews'?'active':''}}" data-tab="reviews" bindtap="switchTab">审批</view><view class="segment {{tab==='seats'?'active':''}}" data-tab="seats" bindtap="switchTab">座位</view><view class="segment {{tab==='inspections'?'active':''}}" data-tab="inspections" bindtap="switchTab">检查</view><view class="segment {{tab==='settings'?'active':''}}" data-tab="settings" bindtap="switchTab">管理</view></view>
   <view wx:if="{{error}}" class="notice">{{error}}</view><view wx:if="{{loading}}" class="loading">正在更新数据…</view>

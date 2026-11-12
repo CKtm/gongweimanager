@@ -19,6 +19,8 @@
     <view class="profile-stats"><view class="stat-card"><text class="stat-value">{{loading || error ? '--' : completed}}</text><text class="stat-label">已填项目</text></view><view class="stat-card"><text class="stat-value">{{loading || error ? '--' : missing}}</text><text class="stat-label">待补项目</text></view><view class="stat-card"><text class="stat-value">{{roleCount}}</text><text class="stat-label">当前角色</text></view></view>
     <view wx:if="{{!loading && !error && isStudent && !profile.mentorId}}" class="binding-notice">尚未绑定导师，请联系管理员维护师生关系。绑定后才能提交流动工位申请。</view>
 
+<message-entry/>
+    <view wx:if="{{isStudent}}" class="settings-row" data-tab="scores" bindtap="openRecords"><text>卫生评分、处罚与申诉</text><image src="/assets/profile/chevron.png" class="chevron"/></view>
     <view id="account-settings" class="settings-list">
       <view class="settings-row" bindtap="openBusiness" aria-role="button" aria-label="进入我的业务"><view class="row-icon-holder"><image src="/assets/profile/business.png" class="row-icon"/></view><text>我的业务</text><image src="/assets/profile/chevron.png" class="chevron"/></view>
       <view class="settings-row" bindtap="editAccount" aria-role="button" aria-label="编辑资料与头像"><view class="row-icon-holder"><image src="/assets/profile/account.png" class="row-icon"/></view><text>资料与头像</text><image src="/assets/profile/chevron.png" class="chevron"/></view>

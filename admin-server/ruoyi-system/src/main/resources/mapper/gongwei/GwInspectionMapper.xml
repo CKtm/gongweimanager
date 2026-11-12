@@ -11,7 +11,8 @@
         <result property="roomScore" column="room_score"/>
     </resultMap>
     <resultMap id="RecordResult" type="GwInspectionRecord">
-        <id property="recordId" column="record_id"/><result property="taskId" column="task_id"/>
+        <id property="recordId" column="record_id"/>
+        <result property="studentId" column="student_id"/><result property="assignmentId" column="assignment_id"/><result property="taskId" column="task_id"/>
         <result property="inspectorId" column="inspector_id"/><result property="inspectorName" column="inspector_name"/>
         <result property="roomId" column="room_id"/><result property="roomName" column="room_name"/>
         <result property="workstationId" column="workstation_id"/><result property="workstationNo" column="workstation_no"/>
@@ -46,14 +47,14 @@
     </insert>
     <update id="updateTaskStatus">update gw_inspection_task set status=#{toStatus},update_time=now() where task_id=#{taskId} and status=#{fromStatus}</update>
     <select id="selectRecordList" resultMap="RecordResult">
-        select r.record_id,r.task_id,r.inspector_id,u.nick_name inspector_name,r.room_id,room.room_name,r.workstation_id,w.workstation_no,
+        select r.record_id,r.student_id,r.assignment_id,r.task_id,r.inspector_id,u.nick_name inspector_name,r.room_id,room.room_name,r.workstation_id,w.workstation_no,
                r.score,r.grade,r.explanation,r.issue_description,r.photo_urls,r.status,t.status task_status,r.admin_comment,r.create_time
         from gw_inspection_record r left join sys_user u on u.user_id=r.inspector_id left join gw_room room on room.room_id=r.room_id left join gw_workstation w on w.workstation_id=r.workstation_id left join gw_inspection_task t on t.task_id=r.task_id
         <where><if test="inspectorId != null">and r.inspector_id=#{inspectorId}</if><if test="status != null and status != ''">and r.status=#{status}</if></where>
         order by r.record_id desc
     </select>
     <select id="selectRecordById" resultMap="RecordResult">
-        select r.record_id,r.task_id,r.inspector_id,u.nick_name inspector_name,r.room_id,room.room_name,r.workstation_id,w.workstation_no,
+        select r.record_id,r.student_id,r.assignment_id,r.task_id,r.inspector_id,u.nick_name inspector_name,r.room_id,room.room_name,r.workstation_id,w.workstation_no,
                r.score,r.grade,r.explanation,r.issue_description,r.photo_urls,r.status,t.status task_status,r.admin_comment,r.create_time
         from gw_inspection_record r left join sys_user u on u.user_id=r.inspector_id left join gw_room room on room.room_id=r.room_id left join gw_workstation w on w.workstation_id=r.workstation_id left join gw_inspection_task t on t.task_id=r.task_id
         where r.record_id=#{recordId}
@@ -67,8 +68,8 @@
         select count(1) from gw_inspection_record where task_id=#{taskId} and status!='ARCHIVED'
     </select>
     <insert id="insertRecord" parameterType="GwInspectionRecord" useGeneratedKeys="true" keyProperty="recordId">
-        insert into gw_inspection_record(task_id,inspector_id,room_id,workstation_id,score,grade,explanation,issue_description,photo_urls,status,create_time)
-        values(#{taskId},#{inspectorId},#{roomId},#{workstationId},#{score},#{grade},#{explanation},#{issueDescription},#{photoUrls},'SUBMITTED',now())
+        insert into gw_inspection_record(student_id,assignment_id,task_id,inspector_id,room_id,workstation_id,score,grade,explanation,issue_description,photo_urls,status,create_time)
+        values(#{studentId},#{assignmentId},#{taskId},#{inspectorId},#{roomId},#{workstationId},#{score},#{grade},#{explanation},#{issueDescription},#{photoUrls},'SUBMITTED',now())
     </insert>
     <update id="updateRecordVerify">update gw_inspection_record set status=#{toStatus},admin_comment=#{comment},verified_by=#{operatorId},verified_time=now(),update_time=now() where record_id=#{recordId} and status=#{fromStatus}</update>
 </mapper>

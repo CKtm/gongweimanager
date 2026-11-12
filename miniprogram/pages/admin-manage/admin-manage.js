@@ -37,6 +37,7 @@ Page({
   if(s.kind==='filter'){const queryExtra={};for(const [k,v] of Object.entries(form))if(v!==''&&v!=null)queryExtra[k]=v;this.setData({queryExtra,pageNum:1,selected:[],sheet:null});await this.load();return}
   if(s.kind==='edit'){method=s.editing?'put':'post';permission=this.schema.permission+(this.mode==='profiles'?':edit':s.editing?':edit':':add');if(this.mode==='profiles'){method='post';if(form.userType!=='STUDENT')form.mentorId=null}else if(this.mode==='stations'){const room=(this.roomOptions||[]).find(x=>same(x.roomId,form.roomId));if(!room)return wx.showToast({title:'请选择有效房间',icon:'none'});form.workstationType=room.roomType==='STUDIO'?'FIXED':'MOBILE';if(form.workstationType==='MOBILE')form.mentorId=null}else if(this.mode==='users'){body={};for(const f of d.fields)body[f.key]=form[f.key];if(s.editing){body.userId=form.userId;body.deptId=form.deptId}else if(String(form.password||'').length<6)return wx.showToast({title:'初始密码至少6位',icon:'none'})}}
   if(s.kind==='batchStations'){if(!Number.isSafeInteger(form.count)||form.count<1||form.count>200)return wx.showToast({title:'请输入1至200的整数',icon:'none'});if(!form.roomId)return wx.showToast({title:'请选择房间',icon:'none'});method='post';url='/gw/workstation/batch';body={roomId:form.roomId,count:form.count};permission='gw:workstation:add'}
+   if(s.kind==='penalty'){const until=form.untilDate+' '+form.untilTime+':00';if(!form.untilDate||!form.untilTime||new Date(until.replace(/-/g,'/')).getTime()<=Date.now())return wx.showToast({title:'请选择晚于当前时间的截止时间',icon:'none'});url='/gw/workstation/status';body={workstationIds:s.ids,status:'DISABLED',until,reason:form.reason.trim()};permission='gw:workstation:edit'}
   if(s.kind==='seatMentor'){url='/gw/workstation/mentor';body={workstationIds:s.ids,mentorId:form.mentorId==null?null:form.mentorId};permission='gw:workstation:edit'}
   if(s.kind==='reset'){url='/system/user/resetPwd';permission='system:user:resetPwd';if(String(form.password||'').length<6)return wx.showToast({title:'新密码至少6位',icon:'none'})}
   if(s.kind==='relation'){url='/gw/profile/relation';method='post';permission='gw:profile:edit'}
@@ -53,10 +54,12 @@ Page({
  async auth(e){const row=this.row(e);if(!row||!this.allowed('system:user:edit'))return;try{const res=await request.get('/system/user/authRole/'+row.userId);this.open({kind:'auth',title:'分配用户角色'},{userId:row.userId,roleIds:(res.roles||[]).filter(r=>r.flag).map(r=>r.roleId)},[field('roleIds','角色',false,'multi',(res.roles||[]).filter(r=>r.status==='0').map(r=>opt(r.roleId,r.roleName)))])}catch(e){}},
  members(e){wx.navigateTo({url:'/pages/admin-manage/admin-manage?mode=members&roleId='+e.currentTarget.dataset.id})},candidates(){wx.navigateTo({url:'/pages/admin-manage/admin-manage?mode=candidates&roleId='+this.data.roleId})},
  async grantMembers(){if(this.data.saving||!this.allowed('system:role:edit')||!this.data.selected.length)return;const grant=this.mode==='candidates';if(!await this.confirm('角色授权','确认'+(grant?'添加':'移除')+'所选 '+this.data.selected.length+' 位用户？'))return;this.setData({saving:true});try{await request.put('/system/role/authUser/'+(grant?'selectAll':'cancelAll')+'?'+query({roleId:this.data.roleId,userIds:this.data.selected}),{});this.setData({selected:[],pageNum:1});await this.load()}catch(e){}finally{this.setData({saving:false})}},
+ penaltySheet(ids){this.open({kind:'penalty',title:'停用处罚（'+ids.length+'个工位）',ids:ids.slice()},{reason:'',untilDate:'',untilTime:'23:59'},[field('reason','处罚原因',true,'textarea')])},
  async singleStationStatus(e){
   const row=this.row(e);if(!row||this.mode!=='stations'||this.data.saving||!this.allowed('gw:workstation:edit'))return;
   const status=e.currentTarget.dataset.status;
   if(!row.studentId||row.status!==(status==='DISABLED'?'IN_USE':'DISABLED')||!['IN_USE','DISABLED'].includes(status))return;
+    if(status==='DISABLED')return this.penaltySheet([row.workstationId]);
   this.setData({saving:true});try{if(!await this.confirm(status==='DISABLED'?'停用工位':'恢复使用',status==='DISABLED'?'暂时禁止该学生使用，保留座位占用和绑定，不能分配给其他人。':'恢复该学生对原座位的使用权？'))return;await request.put('/gw/workstation/status',{workstationIds:[row.workstationId],status});wx.showToast({title:'操作成功'});await this.load()}catch(e){}finally{this.setData({saving:false})}
  },
  async batchStationStatus(e){
@@ -66,6 +69,7 @@ Page({
   if(!['IN_USE','DISABLED'].includes(status))return;
   const seats=(this.raw||[]).filter(x=>ids.some(id=>same(id,x.workstationId)));
   if(seats.some(x=>!x.studentId||x.status!==(status==='DISABLED'?'IN_USE':'DISABLED')))return wx.showToast({title:status==='DISABLED'?'只能停用使用中学生的工位':'只能恢复已绑定学生的停用工位',icon:'none'});
+    if(status==='DISABLED')return this.penaltySheet(ids);
   this.setData({saving:true});
   try{if(!await this.confirm(status==='DISABLED'?'批量停用':'批量恢复','确认操作所选 '+ids.length+' 个工位？'+(status==='DISABLED'?'停用保留学生与座位绑定，禁止使用且不能分配给其他人。':'恢复后继续使用原座位。')))return;await request.put('/gw/workstation/status',{workstationIds:ids,status});wx.showToast({title:'操作成功'});this.setData({selected:[]});await this.load()}catch(e){}finally{this.setData({saving:false})}
  },

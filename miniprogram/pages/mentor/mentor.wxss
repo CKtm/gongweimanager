@@ -6,3 +6,5 @@
 /* Unified native business-page appearance. */
 
 .capacity{display:flex;gap:10rpx}.capacity view{flex:1;min-width:0;border-radius:6rpx;padding:22rpx 4rpx;color:var(--muted)}.capacity .num{font-size:36rpx;font-weight:700}.section-title{color:var(--ink);font-weight:500}.form .picker{padding:22rpx;min-height:92rpx;border:1rpx solid var(--line-strong);border-radius:6rpx;background:#f2f4f8}.station{gap:14rpx}.station .desc{flex-basis:100%;font-size:22rpx}.actions button[type=warn]{background:#fff1f1;border-color:#f1c2c2;color:var(--danger)}.unassigned-row button{border:1rpx solid #c6dcff;border-radius:6rpx}.warning{text-align:left;border:1rpx solid #e8c68a;border-radius:6rpx}.return-photos{flex-wrap:wrap}
+
+.batch-student{display:flex;align-items:center;padding:20rpx 0}.history-overlay{position:fixed;inset:0;z-index:100}.history-mask{position:absolute;inset:0;background:rgba(15,23,42,.45)}.history-panel{position:absolute;bottom:0;left:0;right:0;background:#fff;border-radius:32rpx 32rpx 0 0;padding:30rpx;padding-bottom:calc(30rpx + env(safe-area-inset-bottom))}.history-scroll{max-height:65vh}

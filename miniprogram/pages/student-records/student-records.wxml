@@ -1,0 +1,41 @@
+<view class="page">
+  <view class="page-intro"><text class="page-title">记录与消息</text></view>
+  <view class="segmented"><view wx:for="{{tabs}}" wx:key="key" class="segment {{tab===item.key?'active':''}}" data-tab="{{item.key}}" bindtap="switchTab">{{item.label}}</view></view>
+  <view wx:if="{{error}}" class="notice">{{error}}</view>
+  <view wx:if="{{loading}}" class="empty">正在加载…</view>
+  <view wx:if="{{!rows.length && !loading && !error}}" class="empty">暂无记录</view>
+  <button wx:if="{{tab==='messages' && rows.length}}" size="mini" disabled="{{saving}}" bindtap="readAll">全部标为已读</button>
+  <view wx:for="{{rows}}" wx:key="key" class="card">
+    <block wx:if="{{tab==='scores'}}">
+      <view class="title">{{item.roomName}} / {{item.workstationNo}} <text class="score">{{item.score}} 分</text></view>
+      <view class="muted">{{item.statusText}} · {{item.createTime}}</view>
+      <view class="desc">{{item.explanation || '未填写评定说明'}}</view>
+      <view wx:if="{{item.issueDescription}}" class="desc">{{item.issueDescription}}</view>
+      <view class="actions"><button size="mini" type="primary" data-id="{{item.key}}" bindtap="openAppeal">提出申诉</button><button wx:if="{{item.photoList.length}}" size="mini" data-id="{{item.key}}" bindtap="preview">查看现场照片</button></view>
+    </block>
+    <block wx:elif="{{tab==='penalties'}}">
+      <view class="title">{{item.studentName}} · {{item.roomName}} / {{item.workstationNo}}</view>
+      <view class="status">{{item.statusText}}</view><view class="desc">{{item.reason}}</view>
+      <view class="muted">开始：{{item.startedAt}}</view><view class="muted">截止：{{item.untilAt || '历史记录，请管理员补充截止时间'}}</view>
+      <view wx:if="{{item.endReason}}" class="desc">{{item.endReason}}</view>
+      <view class="actions"><button wx:if="{{student}}" size="mini" type="primary" data-id="{{item.key}}" bindtap="openAppeal">提出申诉</button><button wx:if="{{admin && item.status==='ACTIVE'}}" size="mini" data-id="{{item.key}}" bindtap="openDeadline">调整截止时间</button></view>
+    </block>
+    <block wx:elif="{{tab==='appeals'}}">
+      <view class="title">{{item.studentName}} · {{item.targetType==='SCORE'?'卫生评分':'停用处罚'}}申诉</view>
+      <view class="status">{{item.statusText}}</view><view class="desc">{{item.reason}}</view>
+      <view wx:if="{{item.originalScore!=null}}" class="muted">原始评分：{{item.originalScore}} 分</view>
+      <view wx:if="{{item.mentorComment}}" class="desc">导师意见：{{item.mentorComment}}</view>
+      <view wx:if="{{item.adminComment}}" class="desc">管理员意见：{{item.adminComment}}</view>
+      <view wx:if="{{item.revisedScore!=null}}" class="desc">调整后评分：{{item.revisedScore}} 分</view>
+      <view class="muted">提交时间：{{item.createTime}}</view>
+      <button wx:if="{{item.canReview}}" size="mini" type="primary" data-id="{{item.key}}" bindtap="openReview">{{admin?'终审处理':'初审处理'}}</button>
+    </block>
+    <view wx:else data-id="{{item.key}}" bindtap="readMessage"><view class="title">{{item.title}}<text wx:if="{{!item.readAt}}" class="unread">未读</text></view><view class="desc">{{item.content}}</view><view class="muted">{{item.createTime}}</view></view>
+  </view>
+  <view wx:if="{{total>pageSize}}" class="pagination"><button size="mini" disabled="{{pageNum<=1 || loading}}" bindtap="previous">上一页</button><text>第 {{pageNum}} 页 · 共 {{total}} 条</text><button size="mini" disabled="{{pageNum*pageSize>=total || loading}}" bindtap="next">下一页</button></view>
+</view>
+<view wx:if="{{sheet}}" class="overlay"><view class="mask" bindtap="close" catchtouchmove="stopTouch"></view><view class="sheet"><view class="sheet-head"><text>{{sheet.title}}</text><button size="mini" disabled="{{saving}}" bindtap="close">关闭</button></view><scroll-view scroll-y class="sheet-scroll"><view class="sheet-body">
+  <block wx:if="{{sheet.kind==='appeal'}}"><view class="field-label">申诉原因</view><textarea class="textarea" maxlength="2000" fixed value="{{reason}}" data-field="reason" bindinput="input" placeholder="请描述异议及依据"/></block>
+  <block wx:elif="{{sheet.kind==='review'}}"><radio-group bindchange="selectDecision"><label><radio value="APPROVED" checked="{{decision==='APPROVED'}}"/>通过</label><label><radio value="REJECTED" checked="{{decision==='REJECTED'}}"/>驳回</label></radio-group><view class="field-label">审核意见</view><textarea class="textarea" maxlength="1000" fixed value="{{comment}}" data-field="comment" bindinput="input"/><block wx:if="{{admin && decision==='APPROVED' && sheet.target.targetType==='SCORE'}}"><view class="field-label">调整后评分（0—100）</view><input class="field" type="number" value="{{revisedScore}}" data-field="revisedScore" bindinput="input"/></block></block>
+  <block wx:else><view class="field-label">处罚截止时间（北京时间）</view><picker mode="date" value="{{deadlineDate}}" data-field="deadlineDate" bindchange="input"><view class="field">{{deadlineDate || '选择截止日期'}} ▾</view></picker><picker mode="time" value="{{deadlineTime}}" data-field="deadlineTime" bindchange="input"><view class="field">{{deadlineTime}} ▾</view></picker></block>
+</view></scroll-view><view class="sheet-footer"><button disabled="{{saving}}" bindtap="close">取消</button><button type="primary" loading="{{saving}}" disabled="{{saving}}" bindtap="submit">提交</button></view></view></view>

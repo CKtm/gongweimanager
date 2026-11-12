@@ -16,6 +16,7 @@
       <el-col :xs="24" :lg="10">
         <el-card shadow="never" class="panel">
           <template #header><div class="panel-title"><span>待办事项</span><el-tag type="danger">{{ totalTodo }}</el-tag></div></template>
+          <div class="todo" @click="go('/workstation/lifecycle?tab=appeals')"><span>学生申诉终审</span><b>{{ pending.appeals }}</b></div>
           <div class="todo" @click="go('/workstation/application')"><span>流动工位终审/待分配</span><b>{{ pending.mobile }}</b></div>
           <div class="todo" @click="go('/workstation/quota')"><span>导师工作室申请</span><b>{{ pending.studio }}</b></div>
           <div class="todo" @click="go('/workstation/return')"><span>退还审核/回收核验</span><b>{{ pending.returns }}</b></div>
@@ -26,6 +27,8 @@
         <el-card shadow="never" class="panel">
           <template #header><div class="panel-title"><span>快捷入口</span></div></template>
           <div class="quick-grid">
+            <el-button @click="go('/workstation/lifecycle?tab=appeals')">学生申诉终审</el-button>
+            <el-button @click="go('/workstation/lifecycle?tab=messages')">消息中心</el-button>
             <el-button @click="go('/workstation/room')">工作室管理</el-button>
             <el-button @click="go('/workstation/workstation')">工位台账与布局</el-button>
             <el-button @click="go('/workstation/assignment')">分配与调整</el-button>
@@ -53,6 +56,7 @@
 </template>
 
 <script setup name="Index">
+import request from '@/utils/request'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { listRoom } from '@/api/gongwei/room'
 import { listWorkstation } from '@/api/gongwei/workstation'
@@ -67,7 +71,7 @@ const loading = ref(false)
 const rooms = ref([])
 const workstations = ref([])
 const assignments = ref([])
-const pending = reactive({ mobile: 0, studio: 0, returns: 0, inspection: 0 })
+const pending = reactive({ mobile: 0, studio: 0, returns: 0, inspection: 0, appeals: 0 })
 const normalRoomCount = computed(() => rooms.value.filter(item => item.status === 'NORMAL').length)
 const workstationSummary = computed(() => ({
   available: workstations.value.filter(item => item.status === 'AVAILABLE').length,
@@ -75,7 +79,7 @@ const workstationSummary = computed(() => ({
   pending: workstations.value.filter(item => item.status === 'PENDING_RETURN').length
 }))
 const activeAssignments = computed(() => assignments.value.filter(item => !item.endedAt))
-const totalTodo = computed(() => pending.mobile + pending.studio + pending.returns + pending.inspection)
+const totalTodo = computed(() => pending.mobile + pending.studio + pending.returns + pending.inspection + pending.appeals)
 const roomSummary = computed(() => rooms.value.map(room => {
   const rows = workstations.value.filter(item => item.roomId === room.roomId)
   const inUse = rows.filter(item => item.status === 'IN_USE').length
@@ -84,10 +88,11 @@ const roomSummary = computed(() => rooms.value.map(room => {
 
 function load() {
   loading.value = true
-  Promise.all([listRoom({}), listWorkstation({}), listApplication({}), listReturn({}), listStudioApplication({}), listInspectionRecord({}), listAssignment({})]).then(([roomRes, stationRes, appRes, returnRes, studioRes, inspectionRes, assignmentRes]) => {
+  Promise.all([listRoom({}), listWorkstation({}), listApplication({}), listReturn({}), listStudioApplication({}), listInspectionRecord({}), listAssignment({}), request.get('/gw/appeals/pending-count')]).then(([roomRes, stationRes, appRes, returnRes, studioRes, inspectionRes, assignmentRes, appealRes]) => {
     rooms.value = roomRes.data || []
     workstations.value = stationRes.data || []
     assignments.value = assignmentRes.data || []
+    pending.appeals = Number(appealRes.data) || 0
     pending.mobile = (appRes.data || []).filter(item => ['PENDING_ADMIN', 'WAIT_ALLOC'].includes(item.status)).length
     pending.studio = (studioRes.data || []).filter(item => item.status === 'PENDING').length
     pending.returns = (returnRes.data || []).filter(item => ['PENDING_ADMIN', 'WAIT_VERIFY'].includes(item.status)).length

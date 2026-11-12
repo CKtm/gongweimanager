@@ -1,12 +1,13 @@
 const request = require('../../utils/request')
 
 Page({
+  openRecords(e) { wx.navigateTo({url:'/pages/student-records/student-records?tab='+(e.currentTarget.dataset.tab || 'appeals')}) },
   onPullDownRefresh() {
     return Promise.resolve().then(() => this.load()).catch(() => {}).finally(() => wx.stopPullDownRefresh())
   },
 
   data: {
-    activeTab: 'team', loading: false, team: [], unassignedStudents: [], applications: [], returns: [], ownedRooms: [], fixedStations: [],
+    assignMode: 'single', batchAssignments: [], history: null, historyLoading: false, activeTab: 'team', loading: false, team: [], unassignedStudents: [], applications: [], returns: [], ownedRooms: [], fixedStations: [],
     studentIndex: 0, stationIndex: 0, selectedStudentName: '暂无未分配学生', selectedStationName: '暂无空闲固定工位',
     usageStart: '', usageEnd: '',
     submitting: false, capacity: { total: 0, available: 0, inUse: 0 }, availableFixedCount: 0
@@ -45,7 +46,7 @@ Page({
       const returns = (returnRes.data || []).map(item => Object.assign({}, item, { photoList: item.photoUrls ? item.photoUrls.split(',').filter(Boolean) : [] }))
       this.setData({ team, unassignedStudents, applications: appRes.data || [], returns, ownedRooms, fixedStations, capacity, availableFixedCount, studentIndex, stationIndex,
         selectedStudentName: unassignedStudents[studentIndex] ? (unassignedStudents[studentIndex].nickName || unassignedStudents[studentIndex].userName) : '暂无未分配学生',
-        selectedStationName: fixedStations[stationIndex] ? fixedStations[stationIndex].label : '暂无空闲固定工位' })
+        selectedStationName: fixedStations[stationIndex] ? fixedStations[stationIndex].label : '暂无空闲固定工位', batchAssignments: [] })
     }).finally(() => this.setData({ loading: false }))
   },
   reviewApplication(e) {
@@ -73,6 +74,41 @@ Page({
     if (field === 'usageStart' && this.data.usageEnd && this.data.usageEnd < value) next.usageEnd = ''
     this.setData(next)
   },
+  setAssignMode(e) { if(!this.data.submitting)this.setData({assignMode:e.currentTarget.dataset.mode}) },
+  batchStudents(e) {
+    if(this.data.submitting)return
+    const chosen=new Set(e.detail.value)
+    const batchAssignments=this.data.unassignedStudents.filter(s=>chosen.has(String(s.userId))).map(s=>this.data.batchAssignments.find(x=>String(x.studentId)===String(s.userId))||{studentId:s.userId,name:s.nickName||s.userName,workstationId:null,label:'请选择工位',stationIndex:-1})
+    this.setData({batchAssignments,unassignedStudents:this.data.unassignedStudents.map(s=>({...s,batchChecked:chosen.has(String(s.userId))}))})
+  },
+  batchStation(e) {
+    if(this.data.submitting)return
+    const seat=this.data.fixedStations[Number(e.detail.value)];if(!seat)return
+    this.setData({batchAssignments:this.data.batchAssignments.map(x=>String(x.studentId)===String(e.currentTarget.dataset.id)?{...x,workstationId:seat.workstationId,label:seat.label,stationIndex:Number(e.detail.value)}:x)})
+  },
+  async assignBatch() {
+    if(this.data.submitting)return
+    const rows=this.data.batchAssignments,{usageStart,usageEnd}=this.data
+    if(!rows.length||rows.length>200)return wx.showToast({title:'请选择1至200名学生',icon:'none'})
+    if(rows.some(x=>!x.workstationId))return wx.showToast({title:'请为每名学生选择工位',icon:'none'})
+    if(new Set(rows.map(x=>String(x.workstationId))).size!==rows.length)return wx.showToast({title:'同一工位不能重复分配',icon:'none'})
+    if(!usageStart||!usageEnd||usageEnd<usageStart)return wx.showToast({title:'请选择正确的起止日期',icon:'none'})
+    this.setData({submitting:true})
+    try {
+      const confirmed=await new Promise(resolve=>wx.showModal({title:'确认批量分配',content:rows.map(x=>x.name+' → '+x.label).join('\n')+'\n使用期限：'+usageStart+' 至 '+usageEnd,success:r=>resolve(r.confirm),fail:()=>resolve(false)}))
+      if(!confirmed)return
+      await request.post('/gw/assignment/fixed/batch',{allocations:rows.map(x=>({studentId:x.studentId,workstationId:x.workstationId})),termCode:usageStart+'~'+usageEnd})
+      wx.showToast({title:'批量分配成功'});this.setData({batchAssignments:[],usageStart:'',usageEnd:''});await this.load()
+    } catch(e) {} finally {this.setData({submitting:false})}
+  },
+  async usageHistory(e) {
+    if(this.data.historyLoading)return
+    const student=this.data.team.find(s=>String(s.userId)===String(e.currentTarget.dataset.id));if(!student)return
+    this.setData({historyLoading:true,history:{name:student.nickName||student.userName,rows:[]}})
+    try {const r=await request.get('/gw/assignment/list',{studentId:student.userId});this.setData({history:{name:student.nickName||student.userName,rows:r.data||r.rows||[]}})}catch(e){this.setData({history:null})}finally{this.setData({historyLoading:false})}
+  },
+  closeHistory(){if(!this.data.historyLoading)this.setData({history:null})},
+  stopTouch(){},
   assignFixed() {
     if (this.data.submitting) return
     const student = this.data.unassignedStudents[this.data.studentIndex]

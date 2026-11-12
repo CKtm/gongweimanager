@@ -115,6 +115,9 @@ public class GwWorkstationController extends BaseController {
     }
 
     public static class StatusBatch {
+        @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+        public java.util.Date until;
+        public String reason;
         public List<Long> workstationIds;
         public String status;
     }
@@ -125,6 +128,6 @@ public class GwWorkstationController extends BaseController {
     public AjaxResult changeStatus(@RequestBody StatusBatch body) {
         if (!SecurityUtils.isGongweiAdmin()) throw new com.ruoyi.common.exception.ServiceException("仅管理员可以维护工位状态");
         if (body == null) throw new com.ruoyi.common.exception.ServiceException("请选择工位");
-        return toAjax(workstationService.changeWorkstationStatus(body.workstationIds, body.status, getUsername()));
+        return toAjax(workstationService.changeWorkstationStatus(body.workstationIds, body.status, getUsername(), body.until, body.reason, getUserId()));
     }
 }

@@ -2,6 +2,7 @@ const request = require('../../utils/request')
 const { baseUrl } = require('../../utils/config')
 
 const CATEGORY_LABELS = { all: '全部', space: '工位', review: '审批', inspection: '检查', account: '账号' }
+const SERVICE_COVERS = { space: 'desk', review: 'review', inspection: 'inspection', account: 'desk' }
 const SERVICE_DEFINITIONS = [
   { key: 'spaces', title: '空间总览', description: '房间与工位实时状态', category: 'space', handler: 'openWorkstations' },
   { key: 'student-apply', title: '流动工位申请', description: '申请资格与审批进度', category: 'review', handler: 'openApplications', role: 'isStudent' },
@@ -9,6 +10,7 @@ const SERVICE_DEFINITIONS = [
   { key: 'mentor-seats', title: '我的固定工位', description: '管理员划分，导师分配', category: 'space', handler: 'openQuota', role: 'isMentor' },
   { key: 'mentor-team', title: '团队管理', description: '学生、工位与审批', category: 'review', handler: 'openMentorReview', role: 'isMentor' },
   { key: 'inspector-tasks', title: '现场检查', description: '座位评分与检查记录', category: 'inspection', handler: 'openInspection', role: 'isInspector' },
+  { key: 'admin-appeals', title: '学生申诉终审', description: '导师初审通过后的申诉', category: 'review', handler: 'openAppeals', role: 'isAdmin' },
   { key: 'admin-reviews', title: '审批中心', description: '流动申请与退还审批', category: 'review', handler: 'openAdmin', tab: 'reviews', role: 'isAdmin' },
   { key: 'admin-seats', title: '座位管理', description: '分配、调整与主动收回', category: 'space', handler: 'openAdmin', tab: 'seats', role: 'isAdmin' },
   { key: 'admin-inspections', title: '卫生检查管理', description: '下发任务、核实与归档', category: 'inspection', handler: 'openAdmin', tab: 'inspections', role: 'isAdmin' },
@@ -37,7 +39,7 @@ const homeMethods = {
   onAvatarError() { this.setData({ avatarUrl: '' }) },
   rebuildDashboard() {
     const d = this.data
-    const services = SERVICE_DEFINITIONS.filter(item => !item.role || d[item.role]).map(item => ({ ...item, categoryLabel: CATEGORY_LABELS[item.category] }))
+    const services = SERVICE_DEFINITIONS.filter(item => !item.role || d[item.role]).map(item => ({ ...item, cover: '/assets/home/covers/' + (item.key === 'spaces' ? 'space' : SERVICE_COVERS[item.category] || 'desk') + '.jpg', categoryLabel: CATEGORY_LABELS[item.category] }))
     const categories = Object.entries(CATEGORY_LABELS).filter(([key]) => key === 'all' || services.some(item => item.category === key)).map(([key, label]) => ({ key, label }))
     const activeCategory = categories.some(item => item.key === d.activeCategory) ? d.activeCategory : 'all'
     const nextCards = [], pendingItems = []
@@ -59,7 +61,7 @@ const homeMethods = {
       if (item.count) pendingItems.push(item)
     }
     if (d.isAdmin) {
-      const item = { key: 'admin-pending', count: d.adminPending + d.adminWaiting + d.adminInspection, title: '管理员工作台', description: '待审批 ' + d.adminPending + ' · 待分配 ' + d.adminWaiting + ' · 待核实 ' + d.adminInspection, buttonText: '进入', handler: 'openAdmin', tab: 'reviews' }
+      const item = { key: 'admin-pending', count: d.adminPending + d.adminWaiting + d.adminInspection + d.adminAppeals, title: '管理员工作台', description: '待审批 ' + d.adminPending + ' · 待分配 ' + d.adminWaiting + ' · 待核实 ' + d.adminInspection + ' · 申诉终审 ' + d.adminAppeals, buttonText: '进入', handler: 'openAdmin', tab: 'reviews' }
       nextCards.push(item)
       if (item.count) pendingItems.push(item)
     }
@@ -86,7 +88,7 @@ const homeMethods = {
   closeSheet() { this.setData({ allServicesOpen: false, notificationsOpen: false }) },
   stopTouch() {},
   navigateItem(item) {
-    const handlers = ['openWorkstations', 'openApplications', 'openReturns', 'openQuota', 'openMentorReview', 'openInspection', 'openAdmin', 'openProfile', 'openMyWorkstation']
+    const handlers = ['openWorkstations', 'openApplications', 'openReturns', 'openQuota', 'openMentorReview', 'openInspection', 'openAdmin', 'openAppeals', 'openProfile', 'openMyWorkstation']
     if (!item || !handlers.includes(item.handler)) return
     this.closeSheet()
     this[item.handler]({ currentTarget: { dataset: { tab: item.tab || '' } } })
@@ -118,7 +120,7 @@ Page({
     isMentor: false,
     isInspector: false,
     isAdmin: false,
-    adminPending: 0, adminWaiting: 0, adminInspection: 0
+    adminAppeals: 0, adminPending: 0, adminWaiting: 0, adminInspection: 0
   },
   onShow() {
     const token = wx.getStorageSync('token')
@@ -139,7 +141,7 @@ Page({
     if (isMentor) labels.push('导师')
     if (isInspector) labels.push('卫生检查员')
     if (isAdmin) labels.push('学院管理员')
-    this.setData({ greeting, avatarUrl, avatarInitial, userInfo, roleText: labels.join(' / ') || '普通用户', isStudent, isMentor, isInspector, isAdmin, workstation: null, adminPending: 0, adminWaiting: 0, adminInspection: 0 })
+    this.setData({ greeting, avatarUrl, avatarInitial, userInfo, roleText: labels.join(' / ') || '普通用户', isStudent, isMentor, isInspector, isAdmin, workstation: null, adminAppeals: 0, adminPending: 0, adminWaiting: 0, adminInspection: 0 })
     this.rebuildDashboard()
     return this.refreshDashboard()
   },
@@ -166,8 +168,9 @@ Page({
   loadAdmin() {
     const {can}=require('../../utils/admin'),user=wx.getStorageSync('userInfo')||{}
     const read=(url,permission)=>can(user,permission)?request.get(url).then(r=>r.data||r.rows||[]):Promise.resolve([])
-    return Promise.all([read('/gw/application/list','gw:application:list'),read('/gw/return/list','gw:return:query'),read('/gw/inspection/record/list','gw:inspection:record:list')]).then(([apps,returns,records])=>this.setData({adminPending:apps.filter(x=>x.status==='PENDING_ADMIN').length+returns.filter(x=>['PENDING_ADMIN','WAIT_VERIFY'].includes(x.status)).length,adminWaiting:apps.filter(x=>x.status==='WAIT_ALLOC').length,adminInspection:records.filter(x=>x.status==='SUBMITTED'&&x.taskStatus==='SUBMITTED').length})).catch(()=>this.reportLoadFailure())
+    return Promise.all([read('/gw/application/list','gw:application:list'),read('/gw/return/list','gw:return:query'),read('/gw/inspection/record/list','gw:inspection:record:list'),request.get('/gw/appeals/pending-count')]).then(([apps,returns,records,appeals])=>this.setData({adminAppeals:Number(appeals.data)||0,adminPending:apps.filter(x=>x.status==='PENDING_ADMIN').length+returns.filter(x=>['PENDING_ADMIN','WAIT_VERIFY'].includes(x.status)).length,adminWaiting:apps.filter(x=>x.status==='WAIT_ALLOC').length,adminInspection:records.filter(x=>x.status==='SUBMITTED'&&x.taskStatus==='SUBMITTED').length})).catch(()=>this.reportLoadFailure())
   },
+  openAppeals() { wx.navigateTo({url:'/pages/student-records/student-records?tab=appeals'}) },
   openAdmin(e) { const tab=e.currentTarget.dataset.tab || 'reviews';wx.navigateTo({url:'/pages/admin/admin?tab='+tab}) },
   openWorkstations() { wx.navigateTo({ url: '../workstations/workstations' }) },
   openProfile() { wx.navigateTo({ url: '../profile/profile' }) },

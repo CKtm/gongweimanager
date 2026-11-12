@@ -53,6 +53,7 @@
       <el-form label-width="90px" :disabled="saving"><el-form-item label="修改范围">已选 {{ selectedRows.length }} 个工位</el-form-item><el-form-item label="归属导师"><el-select v-model="batchMentorId" clearable placeholder="留空表示解除导师归属" style="width:100%"><el-option v-for="m in mentors" :key="m.userId" :label="m.nickName || m.userName" :value="m.userId"/></el-select></el-form-item></el-form>
       <template #footer><el-button :disabled="saving" @click="batchOpen=false">取消</el-button><el-button type="primary" :loading="saving" :disabled="saving" @click="saveBatchEdit">确认修改</el-button></template>
     </el-dialog>
+    <el-dialog v-model="penaltyOpen" title="停用处罚" width="520px" :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving"><el-alert :title="`已选 ${penaltyIds.length} 个工位，保留学生占用，到期自动恢复`" type="info" :closable="false" class="mb20"/><el-form label-width="100px" :disabled="saving"><el-form-item label="截止时间" required><el-date-picker v-model="penaltyUntil" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="北京时间"/></el-form-item><el-form-item label="处罚原因" required><el-input v-model="penaltyReason" type="textarea" :rows="4" maxlength="1000" show-word-limit/></el-form-item></el-form><template #footer><el-button :disabled="saving" @click="penaltyOpen=false">取消</el-button><el-button type="primary" :loading="saving" :disabled="saving" @click="submitPenalty">确认停用</el-button></template></el-dialog>
     <excel-import-dialog ref="importRef" title="工位批量导入" action="/gw/workstation/importData" template-action="/gw/workstation/importTemplate" template-file-name="workstation_template" :show-update-support="false" @success="getList" />
   </div>
 </template>
@@ -81,6 +82,7 @@ async function batchStatus(status){
   if(saving.value)return
   const ids=selectedIds();if(!ids)return
   if(selectedRows.value.some(x=>x.status!==(status==='DISABLED'?'IN_USE':'DISABLED') || !x.studentId)){proxy.$modal.msgWarning(status==='DISABLED'?'只能停用已绑定学生的使用中工位':'只能恢复已绑定学生的停用工位');return}
+  if(status==='DISABLED')return openPenalty(ids)
   const action=status==='DISABLED'?'停用':'恢复';saving.value=true
   try{await proxy.$modal.confirm(`确认${action}所选 ${ids.length} 个工位？${status==='DISABLED'?'停用期间保留学生与座位绑定，禁止使用且不能分配给其他人。':'恢复后学生可继续使用原座位。'}`);await changeWorkstationStatus({workstationIds:ids,status});proxy.$modal.msgSuccess('批量'+action+'成功');await getList()}catch(e){}finally{saving.value=false}
 }
@@ -90,6 +92,14 @@ async function batchDelete(){
   if(selectedRows.value.some(x=>x.status!=='AVAILABLE' || x.studentId)){proxy.$modal.msgWarning('只能删除未占用的空闲工位；使用中或停用工位请先完成收回');return}
   saving.value=true
   try{await proxy.$modal.confirm(`确认删除所选 ${ids.length} 个工位？删除后不可恢复。删除后不再展示或分配，已有历史记录仍保留。有未完成业务时整批不执行。`);await delWorkstation(ids.join(','));proxy.$modal.msgSuccess('批量删除成功');await getList()}catch(e){}finally{saving.value=false}
+}
+const penaltyOpen=ref(false),penaltyIds=ref([]),penaltyUntil=ref(''),penaltyReason=ref('')
+function openPenalty(ids){penaltyIds.value=ids.slice();penaltyUntil.value='';penaltyReason.value='';penaltyOpen.value=true}
+async function submitPenalty(){
+ if(saving.value)return
+ if(!penaltyUntil.value||new Date(penaltyUntil.value.replace(/-/g,'/')).getTime()<=Date.now())return proxy.$modal.msgWarning('请选择晚于当前时间的截止时间')
+ if(!penaltyReason.value.trim())return proxy.$modal.msgWarning('请填写处罚原因')
+ saving.value=true;try{await changeWorkstationStatus({workstationIds:penaltyIds.value,status:'DISABLED',until:penaltyUntil.value,reason:penaltyReason.value.trim()});penaltyOpen.value=false;proxy.$modal.msgSuccess('已设置停用处罚');await getList()}catch(e){}finally{saving.value=false}
 }
 const saving=ref(false)
 const loading=ref(false), workstationList=ref([]), rooms=ref([]), open=ref(false), title=ref(''), form=ref({}), viewMode=ref('table')
@@ -110,6 +120,7 @@ function handleImport(){proxy.$refs.importRef.open()}
 function handleEdit(row){if(saving.value)return;form.value={...row};title.value='修改工位';open.value=true;proxy.$nextTick(()=>proxy.$refs.formRef?.clearValidate())}
 async function changeStatus(row,status){
   if(saving.value)return
+  if(status==='DISABLED')return openPenalty([row.workstationId])
   saving.value=true
   try{await proxy.$modal.confirm(status==='DISABLED'?'确认暂时停用该学生的工位？停用期间保留绑定和占用，座位不能分配给其他人。':'确认恢复该学生使用原工位？');await changeWorkstationStatus({workstationIds:[row.workstationId],status});proxy.$modal.msgSuccess(status==='DISABLED'?'已停用':'已恢复使用');await getList()}catch(e){}finally{saving.value=false}
 }

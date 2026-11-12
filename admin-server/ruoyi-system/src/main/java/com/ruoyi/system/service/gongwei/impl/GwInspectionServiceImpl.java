@@ -20,15 +20,20 @@ import com.ruoyi.system.service.gongwei.IGwInspectionService;
 @Service
 public class GwInspectionServiceImpl implements IGwInspectionService {
     @Autowired private GwInspectionMapper mapper;
+    @Autowired private com.ruoyi.system.mapper.gongwei.GwStudentOpsMapper lifecycleMapper;
+    @Autowired private com.ruoyi.system.service.gongwei.GwStudentOpsService lifecycle;
     @Autowired private GwUserProfileMapper profileMapper;
     @Autowired private GwRoomMapper roomMapper;
     @Autowired private GwWorkstationMapper workstationMapper;
     public List<GwInspectionTask> selectTaskList(Long inspectorId, String status) { return mapper.selectTaskList(inspectorId, status); }
+    @Transactional(rollbackFor = Exception.class)
     public int createTask(GwInspectionTask task) {
         if (task.getTaskName() == null || task.getTaskName().isBlank() || task.getInspectorId() == null || task.getScheduledDate() == null) throw new ServiceException("任务名称、检查员和日期不能为空");
         if (profileMapper.countActiveUserByRole(task.getInspectorId(), "inspector") == 0) throw new ServiceException("所选人员不是有效的卫生检查员");
         task.setRoomId(null);
-        return mapper.insertTask(task);
+        int rows = mapper.insertTask(task);
+        lifecycle.message(task.getInspectorId(), "卫生检查任务已下发", task.getTaskName(), "/pages/inspection/inspection", "INSPECTION_TASK_" + task.getTaskId());
+        return rows;
     }
     @Transactional(rollbackFor = Exception.class)
     public int completeTask(Long taskId, Long inspectorId) {
@@ -38,6 +43,7 @@ public class GwInspectionServiceImpl implements IGwInspectionService {
         if (mapper.countRecords(taskId) == 0) throw new ServiceException("请至少提交一条评分再完成任务");
         int rows = mapper.updateTaskStatus(taskId, task.getStatus(), "SUBMITTED");
         if (rows == 0) throw new ServiceException("任务状态已变化，请刷新后重试");
+        lifecycle.notifyAdministrators("卫生检查待核实", "检查员已提交检查任务，请核实评分。", "/pages/admin/admin?tab=inspections", "INSPECTION_SUBMIT_" + taskId);
         return rows;
     }
     public List<GwInspectionRecord> selectRecordList(Long inspectorId, String status) { return mapper.selectRecordList(inspectorId, status); }
@@ -50,10 +56,16 @@ public class GwInspectionServiceImpl implements IGwInspectionService {
         if (task == null || !record.getInspectorId().equals(task.getInspectorId())) throw new ServiceException("任务不存在或不属于当前检查员");
         if (!Arrays.asList("PENDING", "IN_PROGRESS").contains(task.getStatus())) throw new ServiceException("该任务已完成，不能继续录入评分");
         if (record.getWorkstationId() != null) {
-            GwWorkstation workstation = workstationMapper.selectWorkstationById(record.getWorkstationId());
+            GwWorkstation workstation = workstationMapper.selectWorkstationForUpdate(record.getWorkstationId());
             if (workstation == null || workstation.getStudentId() == null) throw new ServiceException("请选择学生当前使用的工位");
             record.setRoomId(workstation.getRoomId());
+            java.util.Map<String, Object> assignment = lifecycleMapper.activeAssignment(workstation.getWorkstationId());
+            if (assignment == null) throw new ServiceException("学生占用已变化，请刷新");
+            record.setStudentId(workstation.getStudentId());
+            record.setAssignmentId(com.ruoyi.system.service.gongwei.GwStudentOpsService.number(assignment, "assignmentId"));
         } else {
+            record.setStudentId(null);
+            record.setAssignmentId(null);
             GwRoom room = record.getRoomId() == null ? null : roomMapper.selectRoomForUpdate(record.getRoomId());
             if (room == null || !"STUDIO".equals(room.getRoomType())) throw new ServiceException("请选择需要评分的工作室");
         }
@@ -86,6 +98,7 @@ public class GwInspectionServiceImpl implements IGwInspectionService {
             && mapper.updateTaskStatus(record.getTaskId(), "SUBMITTED", "CLOSED") == 0) {
             throw new ServiceException("任务状态已变化，请刷新后重试");
         }
+        if ("VERIFIED".equals(status)) lifecycle.scorePublished(recordId);
         return rows;
     }
 

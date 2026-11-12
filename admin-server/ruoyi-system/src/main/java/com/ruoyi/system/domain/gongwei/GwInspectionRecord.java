@@ -5,6 +5,8 @@ import java.util.Date;
 /** 卫生检查记录。 */
 public class GwInspectionRecord {
     private Long recordId;
+    private Long studentId;
+    private Long assignmentId;
     private Long taskId;
     private Long inspectorId;
     private String inspectorName;
@@ -22,6 +24,10 @@ public class GwInspectionRecord {
     private String adminComment;
     private Date createTime;
 
+    public Long getStudentId() { return studentId; }
+    public void setStudentId(Long studentId) { this.studentId = studentId; }
+    public Long getAssignmentId() { return assignmentId; }
+    public void setAssignmentId(Long assignmentId) { this.assignmentId = assignmentId; }
     public Long getRecordId() { return recordId; }
     public void setRecordId(Long recordId) { this.recordId = recordId; }
     public Long getTaskId() { return taskId; }

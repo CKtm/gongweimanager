@@ -18,6 +18,7 @@ import com.ruoyi.system.service.gongwei.IGwReturnService;
 
 @Service
 public class GwReturnServiceImpl implements IGwReturnService {
+    @Autowired private com.ruoyi.system.service.gongwei.GwStudentOpsService lifecycle;
     private static final String SOURCE_STUDENT = "STUDENT";
     private static final String SOURCE_MENTOR = "MENTOR";
     private static final String SOURCE_ADMIN = "ADMIN";
@@ -72,6 +73,7 @@ public class GwReturnServiceImpl implements IGwReturnService {
         }
         returnMapper.insertAudit(application.getReturnId(), "STUDENT_SUBMIT", studentId, null,
             "PENDING_MENTOR", reason.trim());
+        lifecycle.workflowChanged(application.getReturnId(), true);
         return 1;
     }
 
@@ -99,6 +101,7 @@ public class GwReturnServiceImpl implements IGwReturnService {
             throw new ServiceException("工位状态恢复失败");
         }
         returnMapper.insertAudit(returnId, "MENTOR_" + status, mentorId, "PENDING_MENTOR", toStatus, comment.trim());
+        lifecycle.workflowChanged(returnId, true);
         return rows;
     }
 
@@ -129,6 +132,7 @@ public class GwReturnServiceImpl implements IGwReturnService {
                 throw new ServiceException("工位释放失败");
             }
             returnMapper.insertAudit(returnId, "ADMIN_APPROVED", operatorId, "PENDING_ADMIN", "COMPLETED", comment.trim());
+        lifecycle.workflowChanged(returnId, true);
             assignmentMapper.insertAudit(assignment.getAssignmentId(), "RECLAIM_COMPLETE", operatorId,
                 item.getStudentId(), item.getWorkstationId(), null, comment.trim());
             return 1;
@@ -137,6 +141,7 @@ public class GwReturnServiceImpl implements IGwReturnService {
         if (rows == 0) throw new ServiceException("退还申请状态已变化，请刷新后重试");
         returnMapper.insertAudit(returnId, "ADMIN_CLEANING_REJECTED", operatorId,
             "PENDING_ADMIN", "WAIT_CLEAR", comment.trim());
+        lifecycle.workflowChanged(returnId, true);
         return rows;
     }
 
@@ -156,6 +161,7 @@ public class GwReturnServiceImpl implements IGwReturnService {
         int rows = returnMapper.updatePhotos(returnId, studentId, toStatus, normalizedPhotos);
         if (rows == 0) throw new ServiceException("退还申请状态已变化，请刷新后重试");
         returnMapper.insertAudit(returnId, "PHOTOS_UPLOADED", studentId, "WAIT_CLEAR", toStatus, "学生上传清空照片");
+        lifecycle.workflowChanged(returnId, true);
         return rows;
     }
 
@@ -168,6 +174,7 @@ public class GwReturnServiceImpl implements IGwReturnService {
         int rows = returnMapper.markCleared(returnId);
         if (rows == 0) throw new ServiceException("历史退还申请不在待清空状态");
         returnMapper.insertAudit(returnId, "LEGACY_CLEAR_CONFIRMED", studentId, "WAIT_CLEAR", "WAIT_VERIFY", "历史清空确认");
+        lifecycle.workflowChanged(returnId, true);
         return rows;
     }
 
@@ -185,6 +192,7 @@ public class GwReturnServiceImpl implements IGwReturnService {
             }
             returnMapper.insertAudit(returnId, "LEGACY_VERIFY_REJECTED", operatorId,
                 "WAIT_VERIFY", "WAIT_CLEAR", comment.trim());
+        lifecycle.workflowChanged(returnId, true);
             assignmentMapper.insertAudit(item.getAssignmentId(), "CLEAR_REJECTED", operatorId,
                 item.getStudentId(), item.getWorkstationId(), item.getWorkstationId(), comment.trim());
             return;
@@ -200,6 +208,7 @@ public class GwReturnServiceImpl implements IGwReturnService {
         }
         returnMapper.insertAudit(returnId, "LEGACY_VERIFY_APPROVED", operatorId,
             "WAIT_VERIFY", "COMPLETED", comment.trim());
+        lifecycle.workflowChanged(returnId, true);
         assignmentMapper.insertAudit(item.getAssignmentId(), "RECLAIM_COMPLETE", operatorId,
             item.getStudentId(), item.getWorkstationId(), null, comment.trim());
     }
@@ -222,6 +231,7 @@ public class GwReturnServiceImpl implements IGwReturnService {
         if (rows == 0) throw new ServiceException("历史退还申请状态已变化，请刷新后重试");
         returnMapper.insertAudit(item.getReturnId(), "LEGACY_MENTOR_" + status, mentorId,
             "PENDING_MENTOR", toStatus, comment);
+        lifecycle.workflowChanged(item.getReturnId(), true);
         return rows;
     }
 
@@ -237,6 +247,7 @@ public class GwReturnServiceImpl implements IGwReturnService {
         }
         returnMapper.insertAudit(item.getReturnId(), "LEGACY_ADMIN_" + status, operatorId,
             "PENDING_ADMIN", toStatus, comment);
+        lifecycle.workflowChanged(item.getReturnId(), true);
         return rows;
     }
 

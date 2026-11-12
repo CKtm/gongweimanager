@@ -1,0 +1,1 @@
+.entry{display:flex;align-items:center;gap:20rpx;background:#fff;padding:28rpx 30rpx;border:1rpx solid #e4eaf1;border-radius:20rpx;margin:20rpx 0;font-size:28rpx;color:#223348}.count{margin-left:auto;color:#0f62fe;font-size:24rpx}

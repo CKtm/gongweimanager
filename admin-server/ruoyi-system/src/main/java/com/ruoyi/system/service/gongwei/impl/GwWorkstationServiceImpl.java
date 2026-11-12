@@ -21,6 +21,7 @@ import com.ruoyi.system.service.gongwei.IGwWorkstationService;
 public class GwWorkstationServiceImpl implements IGwWorkstationService {
     @Autowired
     private GwWorkstationMapper workstationMapper;
+    @Autowired private com.ruoyi.system.service.gongwei.GwStudentOpsService lifecycle;
     @Autowired
     private GwRoomMapper roomMapper;
     @Autowired
@@ -191,6 +192,13 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int changeWorkstationStatus(List<Long> workstationIds, String status, String operator) {
+        return changeWorkstationStatus(workstationIds, status, operator, null, null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int changeWorkstationStatus(List<Long> workstationIds, String status, String operator, java.util.Date until, String reason, Long operatorId) {
+        if ("DISABLED".equals(status)) lifecycle.validateDeadline(until, reason);
         if (!"IN_USE".equals(status) && !"DISABLED".equals(status)) throw new ServiceException("仅支持使用中工位停用、停用工位恢复使用");
         List<Long> ids = batchIds(workstationIds);
         List<GwWorkstation> seats = new ArrayList<>();
@@ -204,6 +212,8 @@ public class GwWorkstationServiceImpl implements IGwWorkstationService {
             seats.add(seat);
         }
         for (GwWorkstation seat : seats) {
+            if ("DISABLED".equals(status)) lifecycle.startPenalty(seat, until, reason, operatorId);
+            else lifecycle.finishPenalty(seat.getWorkstationId(), "RESTORED", "管理员提前恢复工位使用权");
             seat.setStatus(status);
             seat.setUpdateBy(operator);
             if (workstationMapper.updateWorkstation(seat) != 1) throw new ServiceException("更新工位失败，本次操作已撤销");

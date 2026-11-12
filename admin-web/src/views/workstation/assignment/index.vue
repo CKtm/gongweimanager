@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <el-alert title="固定工位由导师直接分配给自己的学生，系统按导师在所有房间名下的真实空闲固定工位校验，不再使用数字配额。" type="info" :closable="false" class="mb20"/>
-    <el-form :inline="true" class="mb8"><el-form-item><el-checkbox v-model="activeOnly">只看有效占用</el-checkbox></el-form-item><el-form-item><el-button type="primary" @click="load">查询</el-button><el-button type="success" v-hasPermi="['gw:assignment:assign']" @click="openFixed">分配固定工位</el-button></el-form-item></el-form>
+    <el-form :inline="true" class="mb8"><el-form-item><el-checkbox v-model="activeOnly">只看有效占用</el-checkbox></el-form-item><el-form-item><el-button type="primary" @click="load">查询</el-button><el-button type="success" v-hasPermi="['gw:assignment:assign']" @click="openFixed">分配固定工位</el-button><el-button type="primary" plain v-hasPermi="['gw:assignment:assign']" @click="openBatch">批量分配</el-button></el-form-item></el-form>
     <el-table v-loading="loading" :data="list" border>
       <el-table-column prop="assignmentId" label="记录ID" width="85"/><el-table-column prop="studentName" label="学生" min-width="110"/><el-table-column prop="roomName" label="房间" min-width="120"/><el-table-column label="工位" min-width="140"><template #default="{row}">{{row.workstationNo}} <el-tag v-if="row.workstationDeleted" type="info" size="small">已删除</el-tag></template></el-table-column><el-table-column prop="workstationType" label="类型" width="90"><template #default="{row}">{{ row.workstationType==='FIXED'?'固定':'流动' }}</template></el-table-column><el-table-column prop="termCode" label="学期" width="110"/><el-table-column label="来源" width="100"><template #default="{row}">{{ row.applicationId?'流动申请':'导师分配' }}</template></el-table-column><el-table-column prop="startedAt" label="开始时间" width="165"/><el-table-column prop="endedAt" label="结束时间" width="165"/>
       <el-table-column label="操作" width="190" fixed="right"><template #default="{row}"><template v-if="!row.endedAt"><el-button link type="primary" v-hasPermi="['gw:assignment:adjust']" @click="openAdjust(row)">调整</el-button><el-button link type="danger" v-hasPermi="['gw:assignment:recall']" @click="recall(row)">{{ recallButtonText(row) }}</el-button></template><span v-else>-</span></template></el-table-column>
@@ -17,6 +17,11 @@
       <template #footer><el-button @click="fixedOpen=false">取消</el-button><el-button type="primary" @click="submitFixed">确认分配</el-button></template>
     </el-dialog>
 
+    <el-dialog v-model="batchOpen" title="批量分配固定工位" width="780px" :close-on-click-modal="!batchSaving" :close-on-press-escape="!batchSaving" :show-close="!batchSaving">
+      <el-alert title="每名学生选择一个工位；系统校验师生关系和工位归属。任一项失败则整批撤销。" type="info" :closable="false" class="mb20"/>
+      <el-form :disabled="batchSaving" label-width="95px"><el-form-item label="使用期限" required><el-date-picker v-model="batchDates" type="daterange" value-format="YYYY-MM-DD" start-placeholder="开始日期" end-placeholder="结束日期"/></el-form-item><div v-for="(row,i) in batchRows" :key="row.key" style="display:flex;gap:12px;margin:12px 0"><el-select v-model="row.studentId" filterable placeholder="选择学生"><el-option v-for="s in students" :key="s.userId" :label="s.nickName||s.userName" :value="s.userId"/></el-select><el-select v-model="row.workstationId" filterable placeholder="选择固定工位"><el-option v-for="s in batchSeatOptions(row)" :key="s.workstationId" :label="`${s.roomName} / ${s.workstationNo}`" :value="s.workstationId"/></el-select><el-button :disabled="batchSaving" @click="batchRows.splice(i,1)">移除</el-button></div><el-button :disabled="batchSaving||batchRows.length>=200" @click="addBatchRow">添加一名学生</el-button></el-form>
+      <template #footer><el-button :disabled="batchSaving" @click="batchOpen=false">取消</el-button><el-button type="primary" :disabled="batchSaving" :loading="batchSaving" @click="submitBatch">确认批量分配</el-button></template>
+    </el-dialog>
     <el-dialog v-model="adjustOpen" title="调整工位" width="520px">
       <el-form ref="adjustRef" :model="adjustForm" :rules="adjustRules" label-width="90px"><el-form-item label="当前工位"><el-input :model-value="adjustCurrent" disabled/></el-form-item><el-form-item label="目标工位" prop="targetWorkstationId"><el-select v-model="adjustForm.targetWorkstationId" filterable style="width:100%"><el-option v-for="item in adjustStations" :key="item.workstationId" :label="`${item.roomName} / ${item.workstationNo}`" :value="item.workstationId"/></el-select></el-form-item><el-form-item label="调整原因" prop="reason"><el-input v-model="adjustForm.reason" type="textarea" :rows="3" maxlength="500" show-word-limit/></el-form-item></el-form>
       <template #footer><el-button @click="adjustOpen=false">取消</el-button><el-button type="primary" @click="submitAdjust">确认调整</el-button></template>
@@ -25,6 +30,7 @@
 </template>
 
 <script setup name="GwAssignment">
+import request from '@/utils/request'
 import useUserStore from '@/store/modules/user'
 import { adjustAssignment, assignFixed, listAssignment, recallAssignment } from '@/api/gongwei/assignment'
 import { listProfileOptions, listMentorTeam } from '@/api/gongwei/profile'
@@ -38,6 +44,19 @@ function loadStudents(){return isMentor.value?listMentorTeam():listProfileOption
 function filterOwned(rows){const normalRows=rows.filter(x=>x.roomStatus==='NORMAL');return isMentor.value?normalRows.filter(x=>Number(x.mentorId)===Number(userStore.id)):normalRows}
 function openFixed(){fixedForm.value={studentId:undefined,workstationId:undefined,termCode:''};Promise.all([loadStudents(),listWorkstation({workstationType:'FIXED',status:'AVAILABLE'})]).then(([users,stations])=>{const occupied=new Set(list.value.filter(x=>!x.endedAt).map(x=>Number(x.studentId)));students.value=(users.data||[]).filter(x=>!occupied.has(Number(x.userId)));fixedStations.value=filterOwned(stations.data||stations.rows||[]);fixedOpen.value=true})}
 function submitFixed(){proxy.$refs.fixedRef.validate(valid=>{if(!valid)return;assignFixed(fixedForm.value).then(()=>{proxy.$modal.msgSuccess('固定工位分配成功');fixedOpen.value=false;load()})})}
+const batchOpen=ref(false),batchSaving=ref(false),batchRows=ref([]),batchDates=ref([])
+let batchKey=0
+function addBatchRow(){batchRows.value.push({key:++batchKey,studentId:undefined,workstationId:undefined})}
+function batchSeatOptions(row){const student=students.value.find(s=>s.userId===row.studentId);return fixedStations.value.filter(s=>student&&Number(s.mentorId)===Number(student.mentorId))}
+async function openBatch(){if(batchSaving.value)return;try{const [users,seats,active]=await Promise.all([loadStudents(),listWorkstation({workstationType:'FIXED',status:'AVAILABLE'}),listAssignment({activeOnly:true})]);const busy=new Set((active.data||[]).map(a=>Number(a.studentId)));students.value=(users.data||[]).filter(s=>!busy.has(Number(s.userId)));fixedStations.value=filterOwned(seats.data||seats.rows||[]);batchRows.value=[];batchDates.value=[];addBatchRow();batchOpen.value=true}catch(e){}}
+async function submitBatch(){
+ if(batchSaving.value)return
+ const pairs=batchRows.value
+ if(!pairs.length||pairs.length>200||pairs.some(r=>!r.studentId||!r.workstationId))return proxy.$modal.msgWarning('请为1至200名学生选择工位')
+ if(new Set(pairs.map(r=>r.studentId)).size!==pairs.length||new Set(pairs.map(r=>r.workstationId)).size!==pairs.length)return proxy.$modal.msgWarning('学生和工位不能重复')
+ if(!batchDates.value||batchDates.value.length!==2||batchDates.value[1]<batchDates.value[0])return proxy.$modal.msgWarning('请选择正确的使用期限')
+ batchSaving.value=true;try{await proxy.$modal.confirm(`确认同时分配 ${pairs.length} 名学生的工位？`);await request.post('/gw/assignment/fixed/batch',{allocations:pairs.map(r=>({studentId:r.studentId,workstationId:r.workstationId})),termCode:batchDates.value.join('~')});batchOpen.value=false;proxy.$modal.msgSuccess('批量分配成功');load()}catch(e){}finally{batchSaving.value=false}
+}
 function openAdjust(row){adjustForm.value={assignmentId:row.assignmentId,targetWorkstationId:undefined,reason:''};adjustCurrent.value=`${row.roomName} / ${row.workstationNo}`;listWorkstation({workstationType:row.workstationType,status:'AVAILABLE'}).then(res=>{adjustStations.value=filterOwned(res.data||res.rows||[]);adjustOpen.value=true})}
 function submitAdjust(){proxy.$refs.adjustRef.validate(valid=>{if(!valid)return;adjustAssignment(adjustForm.value).then(()=>{proxy.$modal.msgSuccess('工位调整成功');adjustOpen.value=false;load()})})}
 function isMentorFixedRecall(row){return isMentor.value&&row.workstationType==='FIXED'}

@@ -13,5 +13,6 @@ public interface IGwWorkstationService {
     int deleteWorkstationById(Long workstationId);
     int deleteWorkstations(List<Long> workstationIds);
     int changeWorkstationStatus(List<Long> workstationIds, String status, String operator);
+    int changeWorkstationStatus(List<Long> workstationIds, String status, String operator, java.util.Date until, String reason, Long operatorId);
     String importWorkstations(List<GwWorkstation> workstations, String operator);
 }

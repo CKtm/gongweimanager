@@ -13,14 +13,18 @@
     "pages/inspection/inspection",
     "pages/admin/admin",
     "pages/admin-manage/admin-manage",
-    "pages/account/account"
+    "pages/account/account",
+    "pages/student-records/student-records"
   ],
   "window": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "研究生工位管理",
     "navigationBarBackgroundColor": "#ffffff"
   },
-  "usingComponents": {"workspace-nav":"/components/workspace-nav/index"},
+  "usingComponents": {
+    "workspace-nav": "/components/workspace-nav/index",
+    "message-entry": "/components/message-entry/index"
+  },
   "style": "v2",
   "componentFramework": "glass-easel",
   "sitemapLocation": "sitemap.json",

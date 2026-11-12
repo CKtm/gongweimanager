@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.gongwei.GwStudentOpsMapper">
+  <resultMap id="PenaltyMap" type="java.util.HashMap" autoMapping="true">
+    <result property="startedAt" column="startedAt" javaType="java.util.Date"/>
+    <result property="untilAt" column="untilAt" javaType="java.util.Date"/>
+    <result property="endedAt" column="endedAt" javaType="java.util.Date"/>
+  </resultMap>
+  <resultMap id="ScoreMap" type="java.util.HashMap" autoMapping="true">
+    <result property="createTime" column="createTime" javaType="java.util.Date"/>
+  </resultMap>
+  <resultMap id="AppealMap" type="java.util.HashMap" autoMapping="true">
+    <result property="createTime" column="createTime" javaType="java.util.Date"/>
+    <result property="mentorReviewedAt" column="mentorReviewedAt" javaType="java.util.Date"/>
+    <result property="adminReviewedAt" column="adminReviewedAt" javaType="java.util.Date"/>
+  </resultMap>
+  <resultMap id="MessageMap" type="java.util.HashMap" autoMapping="true">
+    <result property="readAt" column="readAt" javaType="java.util.Date"/>
+    <result property="createTime" column="createTime" javaType="java.util.Date"/>
+  </resultMap>
+  <select id="lockStudent" resultType="long">
+    select u.user_id from sys_user u join gw_user_profile p on p.user_id=u.user_id
+    where u.user_id=#{userId} and u.status='0' and u.del_flag='0' and upper(p.user_type)='STUDENT' for update
+  </select>
+  <select id="activeAssignment" resultType="map">
+    select assignment_id assignmentId,student_id studentId from gw_assignment where workstation_id=#{workstationId} and ended_at is null for update
+  </select>
+  <sql id="scoreColumns">
+    r.record_id recordId,r.student_id studentId,r.assignment_id assignmentId,r.score,r.grade,
+    r.explanation,r.issue_description issueDescription,r.photo_urls photoUrls,r.status,
+    room.room_name roomName,w.workstation_no workstationNo,r.create_time createTime
+  </sql>
+  <select id="scores" resultMap="ScoreMap">
+    select <include refid="scoreColumns"/> from gw_inspection_record r
+    left join gw_room room on room.room_id=r.room_id left join gw_workstation w on w.workstation_id=r.workstation_id
+    where r.student_id=#{studentId} and r.status in ('VERIFIED','ARCHIVED') order by r.record_id desc
+  </select>
+  <select id="scoreForUpdate" resultMap="ScoreMap">
+    select <include refid="scoreColumns"/> from gw_inspection_record r
+    left join gw_room room on room.room_id=r.room_id left join gw_workstation w on w.workstation_id=r.workstation_id
+    where r.record_id=#{recordId} for update
+  </select>
+  <update id="updateScore">
+    update gw_inspection_record set score=#{score},grade=#{grade},admin_comment=#{comment},update_time=now()
+    where record_id=#{id} and status in ('VERIFIED','ARCHIVED')
+  </update>
+  <sql id="penaltyColumns">
+    p.penalty_id penaltyId,p.student_id studentId,p.assignment_id assignmentId,p.workstation_id workstationId,
+    p.room_name roomName,p.workstation_no workstationNo,p.reason,p.started_at startedAt,p.until_at untilAt,
+    p.status,p.ended_at endedAt,p.end_reason endReason,u.nick_name studentName
+  </sql>
+  <select id="penalties" resultMap="PenaltyMap">
+    select <include refid="penaltyColumns"/> from gw_penalty p left join sys_user u on u.user_id=p.student_id
+    <where>
+      <if test="studentId != null">and p.student_id=#{studentId}</if>
+      <if test="mentorId != null">and exists(select 1 from gw_user_profile f where f.user_id=p.student_id and f.mentor_id=#{mentorId})</if>
+    </where> order by p.penalty_id desc
+  </select>
+  <select id="penalty" resultMap="PenaltyMap">
+    select <include refid="penaltyColumns"/> from gw_penalty p left join sys_user u on u.user_id=p.student_id where p.penalty_id=#{penaltyId}
+  </select>
+  <select id="penaltyForUpdate" resultMap="PenaltyMap">
+    select <include refid="penaltyColumns"/> from gw_penalty p left join sys_user u on u.user_id=p.student_id where p.penalty_id=#{penaltyId} for update
+  </select>
+  <select id="activePenalty" resultType="map">
+    select penalty_id penaltyId from gw_penalty where workstation_id=#{workstationId} and status='ACTIVE' for update
+  </select>
+  <insert id="insertPenalty" useGeneratedKeys="true" keyProperty="penaltyId">
+    insert into gw_penalty(student_id,assignment_id,workstation_id,room_name,workstation_no,reason,until_at,operator_id)
+    values(#{studentId},#{assignmentId},#{workstationId},#{roomName},#{workstationNo},#{reason},#{untilAt},#{operatorId})
+  </insert>
+  <update id="closePenalty">
+    update gw_penalty set status=#{status},ended_at=now(),end_reason=#{reason} where penalty_id=#{id} and status='ACTIVE'
+  </update>
+  <update id="updateDeadline">update gw_penalty set until_at=#{until} where penalty_id=#{id} and status='ACTIVE'</update>
+  <select id="duePenalties" resultType="long">
+    select penalty_id from gw_penalty where status='ACTIVE' and until_at is not null and until_at &lt;= now() order by penalty_id
+  </select>
+  <insert id="insertMessage">
+    insert into gw_message(user_id,title,content,destination,event_key)
+    values(#{userId},#{title},#{content},#{destination},#{eventKey})
+    on duplicate key update event_key=values(event_key)
+  </insert>
+  <select id="messages" resultMap="MessageMap">
+    select message_id messageId,title,content,destination,read_at readAt,create_time createTime from gw_message
+    where user_id=#{userId} order by message_id desc
+  </select>
+  <select id="unread" resultType="int">select count(*) from gw_message where user_id=#{userId} and read_at is null</select>
+  <update id="readMessage">update gw_message set read_at=coalesce(read_at,now()) where message_id=#{id} and user_id=#{userId}</update>
+  <update id="readAllMessages">update gw_message set read_at=now() where user_id=#{userId} and read_at is null</update>
+  <select id="administratorIds" resultType="long">
+    select distinct u.user_id from sys_user u join sys_user_role ur on ur.user_id=u.user_id
+    join sys_role r on r.role_id=ur.role_id
+    where u.status='0' and u.del_flag='0' and r.status='0' and r.del_flag='0' and r.role_key in ('admin','college_admin')
+  </select>
+  <sql id="appealColumns">
+    a.appeal_id appealId,a.student_id studentId,a.mentor_id mentorId,u.nick_name studentName,
+    a.target_type targetType,a.target_id targetId,a.original_score originalScore,a.revised_score revisedScore,
+    a.reason,a.status,a.mentor_comment mentorComment,a.admin_comment adminComment,
+    a.create_time createTime,a.mentor_reviewed_at mentorReviewedAt,a.admin_reviewed_at adminReviewedAt
+  </sql>
+  <select id="pendingAppeals" resultType="int">
+    select count(*) from gw_appeal a where a.status=#{status}
+    <if test="mentorId != null">and exists(select 1 from gw_user_profile p where p.user_id=a.student_id and p.mentor_id=#{mentorId})</if>
+  </select>
+  <select id="appeals" resultMap="AppealMap">
+    select <include refid="appealColumns"/> from gw_appeal a left join sys_user u on u.user_id=a.student_id
+    <where>
+      <if test="studentId != null">and a.student_id=#{studentId}</if>
+      <if test="mentorId != null">and exists(select 1 from gw_user_profile p where p.user_id=a.student_id and p.mentor_id=#{mentorId})</if>
+    </where> order by a.appeal_id desc
+  </select>
+  <select id="appealForUpdate" resultMap="AppealMap">
+    select <include refid="appealColumns"/> from gw_appeal a left join sys_user u on u.user_id=a.student_id where a.appeal_id=#{appealId} for update
+  </select>
+  <insert id="insertAppeal" useGeneratedKeys="true" keyProperty="appealId">
+    insert into gw_appeal(student_id,mentor_id,target_type,target_id,original_score,reason)
+    values(#{studentId},#{mentorId},#{targetType},#{targetId},#{originalScore},#{reason})
+  </insert>
+  <update id="mentorReview">
+    update gw_appeal set status=#{status},mentor_comment=#{comment},mentor_reviewed_at=now()
+    where appeal_id=#{appealId} and status='PENDING_MENTOR'
+  </update>
+  <update id="adminReview">
+    update gw_appeal set status=#{status},admin_comment=#{comment},admin_id=#{operatorId},admin_reviewed_at=now(),revised_score=#{revisedScore}
+    where appeal_id=#{appealId} and status='PENDING_ADMIN'
+  </update>
+  <select id="application" resultType="map">
+    select application_id businessId,student_id studentId,status from gw_mobile_application where application_id=#{applicationId}
+  </select>
+  <select id="returnApplication" resultType="map">
+    select return_id businessId,student_id studentId,status from gw_return_application where return_id=#{returnId}
+  </select>
+</mapper>

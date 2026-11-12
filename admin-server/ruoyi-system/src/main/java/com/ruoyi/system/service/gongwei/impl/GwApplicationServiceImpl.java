@@ -17,6 +17,7 @@ import com.ruoyi.system.service.gongwei.IGwApplicationService;
 public class GwApplicationServiceImpl implements IGwApplicationService {
     @Autowired
     private GwApplicationMapper applicationMapper;
+    @Autowired private com.ruoyi.system.service.gongwei.GwStudentOpsService lifecycle;
 
     @Autowired
     private GwWorkstationMapper workstationMapper;
@@ -35,6 +36,7 @@ public class GwApplicationServiceImpl implements IGwApplicationService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int submitApplication(GwMobileApplication application) {
         if (application.getReason() == null || application.getReason().isBlank()) throw new ServiceException("申请原因不能为空");
         if (application.getPlannedStart() == null || application.getPlannedEnd() == null) throw new ServiceException("拟使用开始和结束日期不能为空");
@@ -52,7 +54,9 @@ public class GwApplicationServiceImpl implements IGwApplicationService {
         if (applicationMapper.countPendingByStudent(application.getStudentId()) > 0) {
             throw new ServiceException("存在未办结的流动工位申请，不能重复提交");
         }
-        return applicationMapper.insertApplication(application);
+        int rows = applicationMapper.insertApplication(application);
+        lifecycle.workflowChanged(application.getApplicationId(), false);
+        return rows;
     }
 
     @Override
@@ -76,6 +80,7 @@ public class GwApplicationServiceImpl implements IGwApplicationService {
         if (rows == 0) {
             throw new ServiceException("申请不存在、不在待导师审核状态或不属于您的学生");
         }
+        lifecycle.workflowChanged(applicationId, false);
         return rows;
     }
 
@@ -99,6 +104,7 @@ public class GwApplicationServiceImpl implements IGwApplicationService {
             throw new ServiceException("申请不存在或不在待管理员审核状态");
         }
         if ("APPROVED".equals(status) && workstationId != null) assignWorkstation(applicationId, workstationId, operatorId);
+        lifecycle.workflowChanged(applicationId, false);
         return rows;
     }
 
@@ -130,5 +136,6 @@ public class GwApplicationServiceImpl implements IGwApplicationService {
             || applicationMapper.updateApplicationStatus(applicationId, "COMPLETED", workstationId) == 0) {
             throw new ServiceException("分配状态更新失败，事务已回滚");
         }
+        lifecycle.workflowChanged(applicationId, false);
     }
 }

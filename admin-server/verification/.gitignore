@@ -1,0 +1,3 @@
+*.class
+/.lifecycle-libs/
+/__pycache__/

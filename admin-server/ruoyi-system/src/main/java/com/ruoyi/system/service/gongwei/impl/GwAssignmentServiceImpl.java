@@ -18,6 +18,8 @@ import com.ruoyi.system.service.gongwei.IGwAssignmentService;
 @Service
 public class GwAssignmentServiceImpl implements IGwAssignmentService {
     @Autowired private GwAssignmentMapper assignmentMapper;
+    @Autowired private com.ruoyi.system.mapper.gongwei.GwStudentOpsMapper lifecycleMapper;
+    @Autowired private com.ruoyi.system.service.gongwei.GwStudentOpsService lifecycle;
     @Autowired private GwWorkstationMapper workstationMapper;
     @Autowired private GwUserProfileMapper profileMapper;
     @Autowired private GwReturnMapper returnMapper;
@@ -39,6 +41,7 @@ public class GwAssignmentServiceImpl implements IGwAssignmentService {
                 throw new ServiceException("请选择有效日期，结束日期不能早于开始日期");
             }
         }
+        if (lifecycleMapper.lockStudent(studentId) == null) throw new ServiceException("学生不存在、已停用或未维护学生档案");
         if (assignmentMapper.selectActiveByStudent(studentId) != null) throw new ServiceException("该学生已有有效工位");
         GwWorkstation workstation = workstationMapper.selectWorkstationForUpdate(workstationId);
         if (workstation == null || !"AVAILABLE".equals(workstation.getStatus()) || !"FIXED".equals(workstation.getWorkstationType())
@@ -54,6 +57,30 @@ public class GwAssignmentServiceImpl implements IGwAssignmentService {
         if (workstationMapper.updateStatus(workstationId, "IN_USE") == 0) throw new ServiceException("工位状态更新失败");
         GwAssignment assignment = assignmentMapper.selectActiveByStudent(studentId);
         assignmentMapper.insertAudit(assignment == null ? null : assignment.getAssignmentId(), "FIXED_ASSIGN", operatorId, studentId, null, workstationId, "使用期限 " + termCode + " 分配固定工位");
+        lifecycle.message(studentId, "固定工位已分配", workstation.getRoomName() + " / " + workstation.getWorkstationNo() + "，使用期限 " + termCode,
+            "/pages/myworkstation/myworkstation", "FIXED_ASSIGN_" + assignment.getAssignmentId());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int batchAssignFixed(List<com.ruoyi.system.domain.gongwei.GwFixedAllocation> allocations, Long operatorId, String termCode, boolean admin) {
+        if (allocations == null || allocations.isEmpty() || allocations.size() > 200) throw new ServiceException("请选择1至200组学生和工位");
+        java.util.Set<Long> students = new java.util.TreeSet<>();
+        java.util.Set<Long> seats = new java.util.TreeSet<>();
+        for (com.ruoyi.system.domain.gongwei.GwFixedAllocation allocation : allocations) {
+            if (allocation == null || allocation.studentId == null || allocation.workstationId == null) throw new ServiceException("每组必须选择学生和工位");
+            if (!students.add(allocation.studentId) || !seats.add(allocation.workstationId)) throw new ServiceException("学生和工位均不能重复选择");
+        }
+        for (Long studentId : students) {
+            if (lifecycleMapper.lockStudent(studentId) == null) throw new ServiceException("学生不存在或已停用");
+        }
+        for (Long workstationId : seats) {
+            if (workstationMapper.selectWorkstationForUpdate(workstationId) == null) throw new ServiceException("工位不存在");
+        }
+        for (com.ruoyi.system.domain.gongwei.GwFixedAllocation allocation : allocations) {
+            assignFixed(allocation.studentId, allocation.workstationId, operatorId, termCode, admin);
+        }
+        return allocations.size();
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -111,6 +138,8 @@ public class GwAssignmentServiceImpl implements IGwAssignmentService {
                 }
                 assignmentMapper.insertAudit(assignmentId, "MENTOR_RECALL_COMPLETE", operatorId,
                     current.getStudentId(), current.getWorkstationId(), null, reason.trim());
+                lifecycle.finishPenalty(current.getWorkstationId(), "RECALLED", "导师已收回原工位，处罚终结");
+                lifecycle.message(current.getStudentId(), "固定工位已收回", reason.trim(), "/pages/myworkstation/myworkstation", "RECALL_" + assignmentId);
                 return;
             }
             if (!"MOBILE".equals(current.getWorkstationType())) {
@@ -130,6 +159,8 @@ public class GwAssignmentServiceImpl implements IGwAssignmentService {
             throw new ServiceException("该工位已有未完成退还/回收流程，请刷新后重试");
         }
         if (workstationMapper.updateStatus(current.getWorkstationId(), "PENDING_RETURN") == 0) throw new ServiceException("工位待回收状态更新失败");
+        lifecycle.finishPenalty(current.getWorkstationId(), "RECALLED", "工位已进入主动收回流程");
+        lifecycle.workflowChanged(application.getReturnId(), true);
         String action = admin ? "ADMIN_RECALL" : "MENTOR_MOBILE_RECALL";
         assignmentMapper.insertAudit(assignmentId, action, operatorId, current.getStudentId(), current.getWorkstationId(), null, reason.trim());
         returnMapper.insertAudit(application.getReturnId(), action, operatorId, null, "WAIT_CLEAR", reason.trim());

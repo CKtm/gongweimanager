@@ -55,7 +55,7 @@ function setup() {
     assert.equal(data.subarray(1, 4).toString(), 'PNG'); assert(data.readUInt32BE(16) > 0 && data.readUInt32BE(20) > 0)
   }
   let component
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'components/workspace-nav/index.js'), 'utf8'), { Component: value => { component = value }, wx: { reLaunch: value => test.navigation.push(value.url) } })
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'components/workspace-nav/index.js'), 'utf8'), { Component: value => { component = value }, require: () => ({ get: async () => ({ data: 0 }) }), wx: { reLaunch: value => test.navigation.push(value.url) } })
   assert.equal(component.properties.appearance.value, 'default')
   const nav = { data: { active: 'spaces' } }; component.methods.go.call(nav, { currentTarget: { dataset: { key: 'home' } } })
   assert.equal(test.navigation.at(-1), '/pages/index/index')

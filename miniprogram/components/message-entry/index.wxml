@@ -1,0 +1,1 @@
+<view class="entry" bindtap="open" aria-role="button" aria-label="消息中心"><text>消息中心</text><text class="count">{{unread ? (unread>99?'99+':unread)+' 条未读' : '查看通知'}}</text><text>›</text></view>

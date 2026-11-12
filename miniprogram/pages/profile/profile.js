@@ -3,6 +3,7 @@ const { baseUrl } = require('../../utils/config')
 const ROLE_NAMES = { common: '研究生', mentor: '研究生导师', inspector: '卫生检查员', admin: '学院管理员', college_admin: '学院管理员' }
 
 Page({
+  openRecords(e) { wx.navigateTo({url:'/pages/student-records/student-records?tab='+(e.currentTarget.dataset.tab || 'appeals')}) },
   data: {
     profile: {}, userInfo: {}, roleText: '', avatar: '用', avatarUrl: '', displayName: '',
     loading: false, error: '', isStudent: false, roleCount: 0, completed: 0, totalFields: 4, missing: 4, progress: 0,
